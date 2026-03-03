@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace GardenLogic
+namespace WildTamer
 {
     /// <summary>
     /// 플레이어의 기본 스탯을 정의하는 ScriptableObject입니다.
@@ -25,6 +25,10 @@ namespace GardenLogic
 
         [SerializeField, Tooltip("공격 쿨타임 (초)")]
         public float attackCooldown = 1f;
+
+        [Header("물리 설정")]
+        [SerializeField, Tooltip("Rigidbody2D 무게 — 클수록 유닛에게 덜 밀림")]
+        public float mass = 10f;
 
         #endregion
     }

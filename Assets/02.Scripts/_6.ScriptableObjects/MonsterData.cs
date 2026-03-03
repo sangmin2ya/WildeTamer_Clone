@@ -60,6 +60,10 @@ namespace WildTamer
         [Range(0f, 1f)]
         public float stunChance = 0.3f;
 
+        [Header("물리 설정")]
+        [SerializeField, Tooltip("Rigidbody2D 무게 — 클수록 다른 유닛에게 덜 밀림")]
+        public float mass = 1f;
+
         [Header("프리팹 참조")]
         [SerializeField, Tooltip("적 상태일 때 사용할 프리팹")]
         public GameObject enemyPrefab;
