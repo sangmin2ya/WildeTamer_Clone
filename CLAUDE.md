@@ -1,4 +1,4 @@
-# GardenLogic 프로젝트 가이드
+# WildTamerClone 프로젝트 가이드
 
 ## 프로젝트 정보
 - **언어**: C#
@@ -152,7 +152,7 @@ private void Move()
 ```csharp
 using UnityEngine;
 
-namespace GardenLogic
+namespace WildTamer
 {
     /// <summary>
     /// 클래스에 대한 설명을 작성합니다.
