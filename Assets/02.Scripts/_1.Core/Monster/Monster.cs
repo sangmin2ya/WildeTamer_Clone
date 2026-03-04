@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace WildTamer
@@ -12,7 +13,7 @@ namespace WildTamer
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(Animator))]
-    public abstract class Monster : MonoBehaviour, IMovable, IFightable, ITameable, IDepthSortable
+    public abstract class Monster : MonoBehaviour, IMovable, IFightable, ITameable
     {
         #region SerializeField 필드
 
@@ -38,7 +39,6 @@ namespace WildTamer
 
         protected Rigidbody2D _rb;
         protected Animator _animator;
-        protected Transform _playerTransform;
 
         protected bool _wasMoving;
         protected bool _isFacingRight = true;
@@ -75,6 +75,15 @@ namespace WildTamer
         /// <summary>소속 스쿼드 — 상태 스크립트에서 목표 위치 참조 등에 사용</summary>
         public Squad Squad => squad;
 
+        /// <summary>몬스터 스탯 및 타입 데이터 — 상태 스크립트에서 attackRange 등 접근에 사용</summary>
+        public MonsterData Data => monsterData;
+
+        /// <summary>
+        /// 체력이 변경될 때 발행됩니다. (현재 체력, 최대 체력)
+        /// MonsterHpBar 등 UI 컴포넌트가 구독하여 표시를 갱신합니다.
+        /// </summary>
+        public event Action<float, float> OnHpChanged;
+
         #endregion
 
         #region Unity 메소드
@@ -84,15 +93,19 @@ namespace WildTamer
             _rb = GetComponent<Rigidbody2D>();
             _animator = GetComponent<Animator>();
 
-            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-            if (playerObj != null)
-            {
-                _playerTransform = playerObj.transform;
-            }
-
             _idleState   = new MonsterIdleState(this);
             _moveState   = new MonsterMoveState(this);
             _combatState = new MonsterCombatState(this);
+        }
+
+        protected virtual void OnEnable()
+        {
+            DepthSorter.Register(spriteRenderer);
+        }
+
+        protected virtual void OnDisable()
+        {
+            DepthSorter.Unregister(spriteRenderer);
         }
 
         protected virtual void Start()
@@ -109,7 +122,6 @@ namespace WildTamer
         protected virtual void Update()
         {
             _currentState?.Update();
-            UpdateSortingOrder();
         }
 
         #endregion
@@ -126,6 +138,7 @@ namespace WildTamer
             IsStunned  = false;
             IsTamed    = false;
             InitRigidbody();
+            OnHpChanged?.Invoke(CurrentHp, monsterData.stat.maxHp);
         }
 
         /// <summary>
@@ -139,6 +152,16 @@ namespace WildTamer
             _rb.angularDamping  = float.MaxValue;
             _rb.interpolation   = RigidbodyInterpolation2D.Interpolate;
             _rb.constraints     = RigidbodyConstraints2D.FreezeRotation;
+        }
+        
+        /// <summary>
+        /// 런타임에 소속 스쿼드를 설정합니다.
+        /// GameManager가 스폰 직후 호출하여 Squad 참조를 주입합니다.
+        /// </summary>
+        /// <param name="newSquad">소속시킬 스쿼드</param>
+        public void SetSquad(Squad newSquad)
+        {
+            squad = newSquad;
         }
 
         #endregion
@@ -260,6 +283,9 @@ namespace WildTamer
         #region IFightable
 
         /// <inheritdoc/>
+        public Transform Transform => transform;
+
+        /// <inheritdoc/>
         public abstract void Attack(IFightable target);
 
         /// <inheritdoc/>
@@ -271,6 +297,7 @@ namespace WildTamer
             }
 
             CurrentHp -= damage;
+            OnHpChanged?.Invoke(CurrentHp, monsterData.stat.maxHp);
             PlayHitAnimation();
 
             if (!IsAlive)
@@ -282,13 +309,17 @@ namespace WildTamer
         /// <inheritdoc/>
         public abstract void Die();
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 공격 애니메이션을 재생합니다.
+        /// </summary>
         public virtual void PlayAttackAnimation()
         {
             _animator.SetTrigger(AnimAttack);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 피격 애니메이션을 재생합니다.
+        /// </summary>
         public virtual void PlayHitAnimation()
         {
             _animator.SetTrigger(AnimHit);
@@ -303,45 +334,6 @@ namespace WildTamer
 
         /// <inheritdoc/>
         public abstract void Tame();
-
-        #endregion
-
-        #region IDepthSortable
-
-        /// <summary>
-        /// 현재 Y 위치를 기반으로 sortingOrder를 갱신합니다.
-        /// 플레이어보다 낮으면 무조건 -1 이하, 높으면 +1 이상을 보장합니다.
-        /// </summary>
-        public virtual void UpdateSortingOrder()
-        {
-            if (_playerTransform == null)
-            {
-                return;
-            }
-
-            Vector2 diff = (Vector2)transform.position - (Vector2)_playerTransform.position;
-            float distSqr = IDepthSortable.SortUpdateDistance * IDepthSortable.SortUpdateDistance;
-
-            if (diff.sqrMagnitude > distSqr)
-            {
-                return;
-            }
-
-            float rawDiff = transform.position.y - _playerTransform.position.y;
-            int magnitude = Mathf.CeilToInt(Mathf.Abs(rawDiff));
-
-            if (magnitude == 0)
-            {
-                return;
-            }
-
-            int sign = rawDiff > 0f ? -1 : 1;
-            spriteRenderer.sortingOrder = Mathf.Clamp(
-                sign * magnitude,
-                IDepthSortable.MinSortingOrder,
-                IDepthSortable.MaxSortingOrder
-            );
-        }
 
         #endregion
     }

@@ -45,6 +45,9 @@ namespace WildTamer
 
         private readonly Dictionary<GameObject, ObjectPool<GameObject>> _pools = new();
 
+        // 프리팹별 계층 컨테이너 — 하이어라키에서 "[Pool] 프리팹명" 으로 묶임
+        private readonly Dictionary<GameObject, Transform> _containers = new();
+
         #endregion
 
         #region Unity 메소드
@@ -67,7 +70,9 @@ namespace WildTamer
         #region 초기화
 
         /// <summary>
-        /// Inspector에 등록된 풀 항목을 미리 생성합니다.
+        /// Inspector에 등록된 풀 항목을 미리 생성하고 워밍업합니다.
+        /// Unity ObjectPool의 defaultCapacity는 내부 컬렉션 용량 힌트일 뿐
+        /// 실제 오브젝트를 사전 생성하지 않으므로, Get→Release 반복으로 직접 워밍업합니다.
         /// </summary>
         private void InitializePools()
         {
@@ -78,7 +83,33 @@ namespace WildTamer
                     continue;
                 }
 
-                CreatePool(entry.prefab, entry.defaultCapacity, entry.maxSize);
+                ObjectPool<GameObject> pool = CreatePool(entry.prefab, entry.defaultCapacity, entry.maxSize);
+                WarmUpPool(pool, entry.defaultCapacity);
+            }
+        }
+
+        /// <summary>
+        /// 풀에서 count만큼 오브젝트를 꺼냈다가 즉시 반환하여 사전 생성합니다.
+        /// </summary>
+        /// <param name="pool">워밍업할 풀</param>
+        /// <param name="count">사전 생성할 오브젝트 수</param>
+        private void WarmUpPool(ObjectPool<GameObject> pool, int count)
+        {
+            if (count <= 0)
+            {
+                return;
+            }
+
+            GameObject[] buffer = new GameObject[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                buffer[i] = pool.Get();
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                pool.Release(buffer[i]);
             }
         }
 
@@ -96,9 +127,15 @@ namespace WildTamer
                 return existingPool;
             }
 
+            // 프리팹별 부모 컨테이너 생성 — 하이어라키에서 "[Pool] 이름" 으로 묶임
+            GameObject containerObj = new GameObject($"[Pool] {prefab.name}");
+            containerObj.transform.SetParent(transform);
+            Transform container = containerObj.transform;
+            _containers[prefab] = container;
+
             GameObject capturedPrefab = prefab;
             ObjectPool<GameObject> pool = new ObjectPool<GameObject>(
-                createFunc: () => Instantiate(capturedPrefab),
+                createFunc: () => Instantiate(capturedPrefab, container),
                 actionOnGet: obj => obj.SetActive(true),
                 actionOnRelease: obj => obj.SetActive(false),
                 actionOnDestroy: obj => Destroy(obj),

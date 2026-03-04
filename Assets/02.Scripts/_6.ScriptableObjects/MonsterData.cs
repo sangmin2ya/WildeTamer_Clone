@@ -32,9 +32,6 @@ namespace WildTamer
 
         [Tooltip("공격 사정거리")]
         public float attackRange;
-
-        [Tooltip("적 인식 범위")]
-        public float detectionRange;
     }
 
     /// <summary>

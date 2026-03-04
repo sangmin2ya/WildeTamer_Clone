@@ -14,7 +14,8 @@ namespace WildTamer
         /// <inheritdoc/>
         public override void Attack(IFightable target)
         {
-            // TODO: 전투 시스템 구현
+            PlayAttackAnimation();
+            target.TakeDamage(monsterData.stat.attackDamage);
         }
 
         /// <inheritdoc/>

@@ -14,15 +14,5 @@ namespace WildTamer
         /// </summary>
         void Move(Vector2 destination);
 
-        /// <summary>
-        /// 이동 방향에 따라 스프라이트 방향(좌/우)을 갱신합니다.
-        /// </summary>
-        /// <param name="direction">이동 방향 벡터</param>
-        void UpdateFacing(Vector2 direction);
-
-        /// <summary>
-        /// 실제 이동 속도를 기반으로 이동 애니메이션 파라미터를 갱신합니다.
-        /// </summary>
-        void UpdateMoveAnimation();
     }
 }

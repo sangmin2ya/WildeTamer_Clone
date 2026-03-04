@@ -136,12 +136,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.Squad
   squadType: 0
-  members:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  detectionRadius: 10
+  detectInterval: 0.3
+  members: []
 --- !u!1 &4651012358632707622
 GameObject:
   m_ObjectHideFlags: 0
@@ -221,7 +218,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: -21
+  m_SortingOrder: -51
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: afd85f1b1a62ac145bbd517c7909ceb4, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
