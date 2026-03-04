@@ -45,7 +45,7 @@ namespace WildTamer
 
         /// <summary>
         /// 플레이어 기준 상대 Y를 기반으로 sortingOrder를 갱신합니다.
-        /// 플레이어와 Y가 같으면 스킵하고, 감지 거리 밖이면 업데이트를 건너뜁니다.
+        /// 절댓값에 올림을 적용해 플레이어보다 낮으면 -1 이하, 높으면 +1 이상을 보장합니다.
         /// </summary>
         public void UpdateSortingOrder()
         {
@@ -62,20 +62,22 @@ namespace WildTamer
                 return;
             }
 
-            // 플레이어 기준 상대 Y: 오브젝트가 플레이어보다 아래(낮은 Y)면 양수(앞에 렌더링)
-            int order = Mathf.Clamp(
-                Mathf.RoundToInt(_playerTransform.position.y - transform.position.y),
-                IDepthSortable.MinSortingOrder,
-                IDepthSortable.MaxSortingOrder
-            );
+            // 오브젝트 Y - 플레이어 Y: 낮으면 음수(뒤), 높으면 양수(앞)
+            float rawDiff = transform.position.y - _playerTransform.position.y;
+            int magnitude = Mathf.CeilToInt(Mathf.Abs(rawDiff));
 
-            // 플레이어와 Y가 같으면 스킵
-            if (order == 0)
+            // Y가 완전히 같으면 스킵
+            if (magnitude == 0)
             {
                 return;
             }
 
-            spriteRenderer.sortingOrder = order;
+            int sign = rawDiff > 0f ? -1 : 1;
+            spriteRenderer.sortingOrder = Mathf.Clamp(
+                sign * magnitude,
+                IDepthSortable.MinSortingOrder,
+                IDepthSortable.MaxSortingOrder
+            );
         }
 
         #endregion

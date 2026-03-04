@@ -23,11 +23,5 @@ namespace WildTamer
         /// enemyPrefab을 비활성화하고 allyPrefab을 활성화합니다.
         /// </summary>
         void Tame();
-
-        /// <summary>
-        /// 아군 유닛을 적으로 되돌립니다. (부대 해제)
-        /// allyPrefab을 비활성화하고 enemyPrefab을 활성화합니다.
-        /// </summary>
-        void Dismantle();
     }
 }

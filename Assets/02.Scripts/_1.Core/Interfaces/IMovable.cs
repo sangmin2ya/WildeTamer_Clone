@@ -9,10 +9,10 @@ namespace WildTamer
     public interface IMovable
     {
         /// <summary>
-        /// 유닛을 이동시킵니다.
+        /// 유닛을 이동시킵니다. 목표지점 이동이라면 destination을 사용하고, 입력 기반 이동이라면 입력 벡터를 사용합니다.
         /// FixedUpdate에서 호출되어야 합니다.
         /// </summary>
-        void Move();
+        void Move(Vector2 destination);
 
         /// <summary>
         /// 이동 방향에 따라 스프라이트 방향(좌/우)을 갱신합니다.

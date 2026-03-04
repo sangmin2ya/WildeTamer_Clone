@@ -15,16 +15,15 @@ MonoBehaviour:
   monsterName: 
   monsterType: 0
   stat:
-    maxHp: 0
+    maxHp: 10
     attackDamage: 0
-    moveSpeed: 0
+    moveSpeed: 1.5
     attackCooldown: 0
     attackRange: 0
     detectionRange: 0
   stunChance: 0.3
+  mass: 0.1
   enemyPrefab: {fileID: 0}
   allyPrefab: {fileID: 0}
   preferredDistance: 5
   minDistance: 3
-  orbitRadius: 4
-  orbitSpeed: 45
