@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: PlayerData
   m_EditorClassIdentifier: Assembly-CSharp::GardenLogic.PlayerData
   maxHp: 100
-  attackDamage: 15
+  attackDamage: 5
   moveSpeed: 1.5
-  attackRange: 3
+  attackRange: 2
   attackCooldown: 1
   mass: 10

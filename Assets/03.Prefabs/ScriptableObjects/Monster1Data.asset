@@ -16,14 +16,14 @@ MonoBehaviour:
   monsterType: 0
   stat:
     maxHp: 10
-    attackDamage: 0
+    attackDamage: 1
     moveSpeed: 1.5
-    attackCooldown: 0
-    attackRange: 0
+    attackCooldown: 1
+    attackRange: 1
     detectionRange: 0
   stunChance: 0.3
   mass: 0.1
-  enemyPrefab: {fileID: 0}
-  allyPrefab: {fileID: 0}
+  enemyPrefab: {fileID: 5290469576151389845, guid: 5a730b95f6135e242bda206b13e9f8e3, type: 3}
+  allyPrefab: {fileID: 5290469576151389845, guid: 5a730b95f6135e242bda206b13e9f8e3, type: 3}
   preferredDistance: 5
   minDistance: 3

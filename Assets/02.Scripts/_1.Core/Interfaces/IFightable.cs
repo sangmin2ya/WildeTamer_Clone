@@ -1,13 +1,23 @@
+using System;
+using UnityEngine;
+
 namespace WildTamer
 {
     /// <summary>
     /// 전투 가능한 모든 객체가 구현해야 하는 인터페이스입니다.
-    /// 공격, 공격 애니메이션, 피격 관련 기능을 선언합니다.
+    /// Monster와 PlayerController 모두 이 인터페이스를 구현하여
+    /// 서로를 공격 대상으로 인식할 수 있습니다.
     /// </summary>
     public interface IFightable
     {
+        /// <summary>월드 Transform — 거리 계산 및 이동 목표로 사용</summary>
+        Transform Transform { get; }
+
         /// <summary>현재 체력</summary>
         float CurrentHp { get; }
+
+        /// <summary>체력 변동 이벤트 — UI 갱신 등에 사용</summary>
+        event Action<float, float> OnHpChanged;
 
         /// <summary>생존 여부 (CurrentHp > 0)</summary>
         bool IsAlive { get; }
@@ -29,14 +39,5 @@ namespace WildTamer
         /// </summary>
         void Die();
 
-        /// <summary>
-        /// 공격 애니메이션을 재생합니다.
-        /// </summary>
-        void PlayAttackAnimation();
-
-        /// <summary>
-        /// 피격 애니메이션을 재생합니다.
-        /// </summary>
-        void PlayHitAnimation();
     }
 }
