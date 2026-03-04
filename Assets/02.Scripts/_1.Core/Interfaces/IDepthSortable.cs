@@ -14,7 +14,7 @@ namespace WildTamer
         public static int MaxSortingOrder = 20;
 
         /// <summary>이 거리 이상이면 sortingOrder 업데이트를 건너뜁니다 (최적화)</summary>
-        public static float SortUpdateDistance = 25f;
+        public static float SortUpdateDistance = 15f;
 
         /// <summary>
         /// 현재 Y 위치를 기반으로 SpriteRenderer의 sortingOrder를 갱신합니다.
