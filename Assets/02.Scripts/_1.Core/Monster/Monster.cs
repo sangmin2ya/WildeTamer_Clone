@@ -5,11 +5,12 @@ namespace WildTamer
 {
     /// <summary>
     /// 모든 몬스터의 기반이 되는 추상 클래스입니다.
-    /// IMovable, IFightable, ITameable, IDepthSortable을 구현하며
-    /// 정지·이동·전투 3개 상태로 구성된 상태 머신을 내장합니다.
+    /// IMovable, IFightable, ITameable을 구현하며
+    /// 정지·이동·전투·기절 4개 상태로 구성된 상태 머신을 내장합니다.
     ///
     /// 상태 스크립트는 감지·판단 후 이 클래스의 프리미티브(Move, UpdateFacing 등)를 호출합니다.
-    /// 공격·테이밍 등 개체별로 다른 동작은 서브클래스에서 abstract 메소드로 구현합니다.
+    /// 기절 시 stunChance 판정으로 MonsterStunState로 전환되고,
+    /// TameController(선택)가 테이밍 UI를 표시합니다.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(Animator))]
@@ -30,7 +31,7 @@ namespace WildTamer
         protected float moveAnimThreshold = 0.1f;
 
         [Header("참조")]
-        [SerializeField, Tooltip("flipX 및 sortingOrder에 사용할 SpriteRenderer")]
+        [SerializeField, Tooltip("flipX에 사용할 SpriteRenderer")]
         protected SpriteRenderer spriteRenderer;
 
         #endregion
@@ -61,6 +62,7 @@ namespace WildTamer
         protected MonsterIdleState _idleState;
         protected MonsterMoveState _moveState;
         protected MonsterCombatState _combatState;
+        protected MonsterStunState _stunState;
 
         #endregion
 
@@ -96,22 +98,23 @@ namespace WildTamer
             _idleState   = new MonsterIdleState(this);
             _moveState   = new MonsterMoveState(this);
             _combatState = new MonsterCombatState(this);
+            _stunState   = new MonsterStunState(this);
         }
 
         protected virtual void OnEnable()
         {
-            DepthSorter.Register(spriteRenderer);
-        }
-
-        protected virtual void OnDisable()
-        {
-            DepthSorter.Unregister(spriteRenderer);
+            // 풀 재사용 시에도 상태를 초기화합니다.
+            // Start()는 최초 1회만 실행되므로 OnEnable에서 리셋을 보장합니다.
+            if (monsterData != null)
+            {
+                Initialize();
+                ChangeState(_idleState);
+            }
         }
 
         protected virtual void Start()
         {
-            Initialize();
-            ChangeState(_idleState);
+            // 초기화는 OnEnable에서 처리됩니다.
         }
 
         protected virtual void FixedUpdate()
@@ -146,6 +149,7 @@ namespace WildTamer
         /// </summary>
         protected virtual void InitRigidbody()
         {
+            _rb.simulated       = true;                             // 기절 해제 후 물리 복원
             _rb.bodyType        = RigidbodyType2D.Dynamic;
             _rb.gravityScale    = 0f;
             _rb.mass            = monsterData.mass;
@@ -186,6 +190,12 @@ namespace WildTamer
         /// <param name="state">새로운 군중 상태</param>
         public virtual void OnSquadStateChanged(SquadState state)
         {
+            // 기절 중에는 Squad 상태 전이를 무시합니다.
+            if (IsStunned)
+            {
+                return;
+            }
+
             switch (state)
             {
                 case SquadState.정지:
@@ -291,7 +301,8 @@ namespace WildTamer
         /// <inheritdoc/>
         public virtual void TakeDamage(float damage)
         {
-            if (!IsAlive)
+            // 사망·기절 상태에서는 추가 데미지 무시
+            if (!IsAlive || IsStunned)
             {
                 return;
             }
@@ -300,9 +311,19 @@ namespace WildTamer
             OnHpChanged?.Invoke(CurrentHp, monsterData.stat.maxHp);
             PlayHitAnimation();
 
-            if (!IsAlive)
+            if (CurrentHp <= 0f)
             {
-                Die();
+                CurrentHp = 0f;
+
+                // stunChance 판정: 통과하면 기절(테이밍 대상), 실패하면 즉시 사망 / 적 스쿼드에만 적용
+                if (UnityEngine.Random.value <= monsterData.stunChance &&  squad.Type == SquadType.적)
+                {
+                    Stun();
+                }
+                else
+                {
+                    Die();
+                }
             }
         }
 
@@ -329,11 +350,80 @@ namespace WildTamer
 
         #region ITameable
 
-        /// <inheritdoc/>
-        public abstract void Stun();
+        /// <summary>
+        /// 유닛을 기절 상태로 전환합니다.
+        /// TakeDamage에서 HP 0 도달 후 stunChance 판정 시 호출됩니다.
+        /// </summary>
+        public virtual void Stun()
+        {
+            IsStunned = true;
+            // 물리 시뮬레이션 비활성화 — 제자리 고정, 다른 유닛과의 충돌 제거
+            _rb.linearVelocity = Vector2.zero;
+            _rb.simulated      = false;
+            ChangeState(_stunState);
+        }
 
-        /// <inheritdoc/>
-        public abstract void Tame();
+        /// <summary>
+        /// 기절한 적 유닛을 아군으로 테이밍합니다.
+        /// 아군 프리팹을 풀에서 꺼내 플레이어 스쿼드에 편입하고, 자신은 풀에 반환합니다.
+        /// TameController의 "길들이기" 버튼 콜백에서 호출됩니다.
+        /// </summary>
+        public virtual void Tame()
+        {
+            if (!IsStunned)
+            {
+                return;
+            }
+
+            IsTamed = true;
+            IsStunned = false;
+
+            // 플레이어 스쿼드를 정적 레지스트리에서 탐색
+            Squad playerSquad = Squad.GetPlayerSquad();
+
+            if (playerSquad != null)
+            {
+                if (playerSquad.IsFull)
+                {
+                    return;
+                }
+
+                // 아군 프리팹을 풀에서 꺼내 동일 위치에 배치
+                GameObject allyObj = PoolManager.Instance.GetAlly(monsterData);
+                allyObj.transform.position = transform.position;
+
+                Monster allyMonster = allyObj.GetComponent<Monster>();
+
+                if (allyMonster != null)
+                {
+                    allyMonster.SetSquad(playerSquad);
+                    playerSquad.AddMember(allyMonster);
+                }
+            }
+
+            // 자신을 적 스쿼드에서 제거하고 풀에 반환
+            squad?.RemoveMember(this);
+            PoolManager.Instance.ReleaseEnemy(monsterData, gameObject);
+        }
+
+        /// <summary>
+        /// 기절한 적 유닛을 수확하여 재화를 획득합니다.
+        /// TameController의 "수확하기" 버튼 콜백에서 호출됩니다.
+        /// </summary>
+        public virtual void Root()
+        {
+            if (!IsStunned)
+            {
+                return;
+            }
+
+            // TODO: ResourceManager 연동 — 몬스터 종류·등급에 따른 재화 지급
+            // ResourceManager.Instance.Add(monsterData.rootReward);
+
+            // 자신을 적 스쿼드에서 제거하고 풀에 반환
+            squad?.RemoveMember(this);
+            PoolManager.Instance.ReleaseEnemy(monsterData, gameObject);
+        }
 
         #endregion
     }

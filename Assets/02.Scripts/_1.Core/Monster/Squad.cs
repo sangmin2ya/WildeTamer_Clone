@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -38,6 +39,9 @@ namespace WildTamer
         [SerializeField, Tooltip("이 군중에 소속된 몬스터 목록")]
         private List<Monster> members = new List<Monster>();
 
+        [SerializeField, Tooltip("플레이어 스쿼드 최대 멤버 수")]
+        private int maxMembers = 10;
+
         #endregion
 
         #region Private 필드
@@ -64,6 +68,23 @@ namespace WildTamer
         // Physics 쿼리 없이 O(n) 순회만으로 적 군중 감지 가능
         private static readonly List<Squad> AllSquads = new List<Squad>();
 
+        /// <summary>
+        /// 씬 내 플레이어 타입 스쿼드를 반환합니다.
+        /// Monster.Tame()에서 아군 편입 시 사용합니다.
+        /// </summary>
+        public static Squad GetPlayerSquad()
+        {
+            foreach (Squad s in AllSquads)
+            {
+                if (s.Type == SquadType.플레이어)
+                {
+                    return s;
+                }
+            }
+
+            return null;
+        }
+
         #endregion
 
         #region Public 프로퍼티
@@ -77,25 +98,55 @@ namespace WildTamer
         /// <summary>멤버 몬스터의 이동 목표점 — 이 오브젝트의 현재 위치</summary>
         public Vector3 TargetPosition => transform.position;
 
+        /// <summary>현재 멤버 수</summary>
+        public int MemberCount => members.Count;
+
+        /// <summary>최대 멤버 수</summary>
+        public int MaxMembers => maxMembers;
+
+        /// <summary>최대 멤버 수에 도달했는지 여부</summary>
+        public bool IsFull => members.Count >= maxMembers;
+
+        /// <summary>
+        /// 멤버 수가 변경될 때 발행됩니다. (현재 수, 최대 수)
+        /// TamerCountUI 등 UI 컴포넌트가 구독하여 표시를 갱신합니다.
+        /// </summary>
+        public event Action<int, int> OnMemberCountChanged;
+
+        /// <summary>
+        /// 멤버가 0명이 될 때 발행됩니다.
+        /// GameManager가 구독하여 적 스쿼드를 풀에 반환합니다.
+        /// </summary>
+        public event Action<Squad> OnEmpty;
+
         #endregion
 
         #region Unity 메소드
 
+        private void Awake()
+        {
+            _detectWait = new WaitForSeconds(detectInterval);
+        }
+
         private void OnEnable()
         {
             AllSquads.Add(this);
+            StartCoroutine(DetectEnemySquadsRoutine());
         }
 
         private void OnDisable()
         {
             AllSquads.Remove(this);
             _detectedEnemySquads.Clear();
-        }
+            _currentState   = SquadState.정지;
+            _movementForced = false;
+            _leader         = null;
 
-        private void Start()
-        {
-            _detectWait = new WaitForSeconds(detectInterval);
-            StartCoroutine(DetectEnemySquadsRoutine());
+            // 풀 반환 시 멤버 목록 초기화 (적 스쿼드 전용)
+            if (squadType == SquadType.적)
+            {
+                members.Clear();
+            }
         }
 
         #endregion
@@ -239,6 +290,7 @@ namespace WildTamer
             if (monster != null && !members.Contains(monster))
             {
                 members.Add(monster);
+                OnMemberCountChanged?.Invoke(members.Count, maxMembers);
             }
         }
 
@@ -248,7 +300,15 @@ namespace WildTamer
         /// <param name="monster">제거할 몬스터</param>
         public void RemoveMember(Monster monster)
         {
-            members.Remove(monster);
+            if (members.Remove(monster))
+            {
+                OnMemberCountChanged?.Invoke(members.Count, maxMembers);
+
+                if (members.Count == 0)
+                {
+                    OnEmpty?.Invoke(this);
+                }
+            }
         }
 
         /// <summary>

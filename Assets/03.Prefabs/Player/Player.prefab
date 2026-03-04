@@ -91,54 +91,6 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
---- !u!1 &3608514975873791572
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 8938902102218441551}
-  - component: {fileID: 1591240294372863197}
-  m_Layer: 0
-  m_Name: Squad
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &8938902102218441551
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3608514975873791572}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 4892684357232103846}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1591240294372863197
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3608514975873791572}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7d159295b5dce944b9320617a2298d8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.Squad
-  squadType: 0
-  detectionRadius: 10
-  detectInterval: 0.3
-  members: []
 --- !u!1 &4651012358632707622
 GameObject:
   m_ObjectHideFlags: 0
@@ -216,8 +168,8 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -465883365
+  m_SortingLayer: -1
   m_SortingOrder: -51
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: afd85f1b1a62ac145bbd517c7909ceb4, type: 3}
@@ -464,6 +416,7 @@ GameObject:
   - component: {fileID: 2724359172061351932}
   - component: {fileID: 3003337619653849511}
   - component: {fileID: 405834941644590296}
+  - component: {fileID: 1426878117627234246}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -488,7 +441,7 @@ Transform:
   - {fileID: 8539021200320139655}
   - {fileID: 8551551638163704582}
   - {fileID: 5575544507494702355}
-  - {fileID: 8938902102218441551}
+  - {fileID: 8013263042960450935}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6593709262019753645
@@ -631,6 +584,93 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.PlayerController
   playerData: {fileID: 11400000, guid: 8b1370492cd2bab44bfa48955272efa9, type: 2}
-  squad: {fileID: 1591240294372863197}
+  squad: {fileID: 6548655719065755081}
   squadFollowOffset: 0.5
   spriteRenderer: {fileID: 314420355301922572}
+--- !u!114 &1426878117627234246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7337787551030847791}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4f7cf7a57a496b4da1df12b86087399, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.DepthSortByY
+  scale: 100
+  spriteRenderer: {fileID: 314420355301922572}
+--- !u!1001 &6647174342649144260
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 4892684357232103846}
+    m_Modifications:
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 10.51056
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -12.4857
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5709829122391671273, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+      propertyPath: m_Name
+      value: Squad
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+--- !u!114 &6548655719065755081 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 495112794208730637, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+  m_PrefabInstance: {fileID: 6647174342649144260}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d159295b5dce944b9320617a2298d8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.Squad
+--- !u!4 &8013263042960450935 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3678127600374187699, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
+  m_PrefabInstance: {fileID: 6647174342649144260}
+  m_PrefabAsset: {fileID: 0}

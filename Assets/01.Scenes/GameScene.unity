@@ -803,6 +803,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1755599203445170486, guid: ea22311bfcd2a2d44942de7af6b931b5, type: 3}
   m_PrefabInstance: {fileID: 294955301}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &426958614 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6548655719065755081, guid: 983b353518f5c4441b6d53af3fd9a2d5, type: 3}
+  m_PrefabInstance: {fileID: 1737097015295183440}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d159295b5dce944b9320617a2298d8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.Squad
 --- !u!1 &448120804
 GameObject:
   m_ObjectHideFlags: 0
@@ -1224,7 +1235,7 @@ MonoBehaviour:
   m_Intensity: 1
   m_LightVolumeIntensity: 1
   m_LightVolumeEnabled: 0
-  m_ApplyToSortingLayers: 00000000637127bd
+  m_ApplyToSortingLayers: 00000000637127bd1b2f3be4
   m_LightCookieSprite: {fileID: 0}
   m_DeprecatedPointLightCookieSprite: {fileID: 0}
   m_LightOrder: 0
@@ -1611,17 +1622,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 8949410307547441890, guid: 3aae7c62fe270264f822a18279f5b610, type: 3}
   m_PrefabInstance: {fileID: 706482639200812355}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1115095762 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 1591240294372863197, guid: 983b353518f5c4441b6d53af3fd9a2d5, type: 3}
-  m_PrefabInstance: {fileID: 1737097015295183440}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7d159295b5dce944b9320617a2298d8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.Squad
 --- !u!1 &1124258213
 GameObject:
   m_ObjectHideFlags: 0
@@ -1691,14 +1691,14 @@ Canvas:
   m_Enabled: 1
   serializedVersion: 3
   m_RenderMode: 0
-  m_Camera: {fileID: 0}
+  m_Camera: {fileID: 519420031}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
-  m_VertexColorAlwaysGammaSpace: 0
+  m_VertexColorAlwaysGammaSpace: 1
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
@@ -2160,6 +2160,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1459428822}
+  - component: {fileID: 1459428823}
   m_Layer: 5
   m_Name: TameCounter
   m_TagString: Untagged
@@ -2187,6 +2188,19 @@ RectTransform:
   m_AnchoredPosition: {x: -50, y: -50}
   m_SizeDelta: {x: 250, y: 100}
   m_Pivot: {x: 1, y: 1}
+--- !u!114 &1459428823
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1459428821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f95a0d7acdd22744da72aadc410f8742, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.TamerCountUI
+  countText: {fileID: 567436480}
 --- !u!1 &1463468071
 GameObject:
   m_ObjectHideFlags: 0
@@ -2335,51 +2349,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2368517461120355068, guid: 932c98ce2a4f3ee43a013aa9265388b8, type: 3}
   m_PrefabInstance: {fileID: 7313169160005931808}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1562705809
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1562705811}
-  - component: {fileID: 1562705810}
-  m_Layer: 0
-  m_Name: DepthSorter
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1562705810
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1562705809}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6802473d469501c469037954d06118f0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.DepthSorter
-  sortInterval: 0.05
---- !u!4 &1562705811
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1562705809}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.38769, y: -0.0564, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1583838852
 GameObject:
   m_ObjectHideFlags: 0
@@ -2647,14 +2616,14 @@ MonoBehaviour:
   m_MoveRepeatRate: 0.1
   m_XRTrackingOrigin: {fileID: 0}
   m_ActionsAsset: {fileID: -944628639613478452, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
-  m_PointAction: {fileID: 0}
+  m_PointAction: {fileID: -5924754361899051156, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
   m_MoveAction: {fileID: 1665615865170629848, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
   m_SubmitAction: {fileID: 0}
   m_CancelAction: {fileID: 0}
-  m_LeftClickAction: {fileID: 0}
-  m_MiddleClickAction: {fileID: 0}
-  m_RightClickAction: {fileID: 0}
-  m_ScrollWheelAction: {fileID: 0}
+  m_LeftClickAction: {fileID: 3181238211802275333, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
+  m_MiddleClickAction: {fileID: 7612463538244961940, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
+  m_RightClickAction: {fileID: 5828119328771503085, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
+  m_ScrollWheelAction: {fileID: 4340658837202685798, guid: ebd2d6a4e3dce214599330e653124dec, type: 3}
   m_TrackedDevicePositionAction: {fileID: 0}
   m_TrackedDeviceOrientationAction: {fileID: 0}
   m_DeselectOnBackgroundClick: 1
@@ -2686,37 +2655,6 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1733591839
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1733591840}
-  m_Layer: 0
-  m_Name: SpawnPos
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1733591840
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1733591839}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.05, y: -6.85, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2925,8 +2863,8 @@ TilemapRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -465883365
+  m_SortingLayer: -1
   m_SortingOrder: -53
   m_MaskInteraction: 0
   m_ChunkSize: {x: 32, y: 32, z: 32}
@@ -5644,7 +5582,7 @@ Transform:
   m_GameObject: {fileID: 2088138060}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 305.63458, y: 425.0733, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5727,8 +5665,8 @@ TilemapRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -465883365
+  m_SortingLayer: -1
   m_SortingOrder: -54
   m_MaskInteraction: 0
   m_ChunkSize: {x: 32, y: 32, z: 32}
@@ -10039,15 +9977,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2bfa020abdfbddf458b3a01528e9477a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.GameManager
-  allySquad: {fileID: 1115095762}
+  currency: 0
+  allySquad: {fileID: 426958614}
   allyMonsterData: {fileID: 11400000, guid: 5f4bcafef39e9944abfedf556f013383, type: 2}
   allyCount: 3
   allySpawnRadius: 1.5
   enemySquadPrefab: {fileID: 5709829122391671273, guid: ee7abc6ff3d6bfb4689e152a15ae8eb3, type: 3}
   enemyMonsterData: {fileID: 11400000, guid: 5f4bcafef39e9944abfedf556f013383, type: 2}
   enemyCount: 5
-  enemySpawnCenter: {fileID: 1733591840}
+  enemySpawnDistance: 15
   enemySpawnRadius: 2
+  spawnEnemyFrequency: 10
 --- !u!1 &2135246496
 GameObject:
   m_ObjectHideFlags: 0
@@ -10227,6 +10167,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4892684357232103846, guid: 983b353518f5c4441b6d53af3fd9a2d5, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6548655719065755081, guid: 983b353518f5c4441b6d53af3fd9a2d5, type: 3}
+      propertyPath: squadType
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6593709262019753645, guid: 983b353518f5c4441b6d53af3fd9a2d5, type: 3}
@@ -10805,9 +10749,7 @@ SceneRoots:
   - {fileID: 2092000824}
   - {fileID: 253639236}
   - {fileID: 1737097015295183440}
-  - {fileID: 1733591840}
   - {fileID: 246425773}
   - {fileID: 1727649198}
   - {fileID: 2088138062}
   - {fileID: 2092434359}
-  - {fileID: 1562705811}

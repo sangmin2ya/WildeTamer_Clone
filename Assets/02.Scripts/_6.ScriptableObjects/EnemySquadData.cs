@@ -35,13 +35,6 @@ namespace WildTamer
         [SerializeField, Tooltip("군중을 구성하는 개체 최대 수")]
         public int maxUnitCount = 6;
 
-        [Header("목표지점 공전 이동")]
-        [SerializeField, Tooltip("군중 목표지점이 중심점 주변을 도는 회전 반경")]
-        public float orbitRadius = 5f;
-
-        [SerializeField, Tooltip("군중 목표지점이 중심점 주변을 도는 각속도 (도/초)")]
-        public float orbitAngularSpeed = 40f;
-
         #endregion
 
         #region 유효성 검증

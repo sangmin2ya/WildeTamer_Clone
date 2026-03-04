@@ -223,7 +223,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -282,6 +282,8 @@ GameObject:
   - component: {fileID: 3976987520196382975}
   - component: {fileID: 8607424370624573605}
   - component: {fileID: 9072233362215541281}
+  - component: {fileID: 3196057572744199090}
+  - component: {fileID: 3215595845645927575}
   m_Layer: 0
   m_Name: BasicMonster
   m_TagString: Untagged
@@ -424,6 +426,35 @@ MonoBehaviour:
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &3196057572744199090
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5290469576151389845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4bb8b709831589d448e5123f93f370ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.TameController
+  tameButtonPrefab: {fileID: 8822738252503353865, guid: 98b7f7cc8b7f0e349a18f363a0ceab18, type: 3}
+  overlayCanvas: {fileID: 0}
+  buttonWorldOffset: {x: 0, y: 1, z: 0}
+--- !u!114 &3215595845645927575
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5290469576151389845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4f7cf7a57a496b4da1df12b86087399, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.DepthSortByY
+  scale: 100
+  spriteRenderer: {fileID: 4968150559046994886}
 --- !u!1 &8133935109232461635
 GameObject:
   m_ObjectHideFlags: 0
@@ -501,8 +532,8 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_GlobalIlluminationMeshLod: 0
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
+  m_SortingLayerID: -465883365
+  m_SortingLayer: -1
   m_SortingOrder: -51
   m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: afd85f1b1a62ac145bbd517c7909ceb4, type: 3}
@@ -741,3 +772,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.MonsterHpBar
   fillImage: {fileID: 7301555321626266807}
   hideWhenFull: 1
+  hideWhenZero: 1
+  hideDelay: 3
