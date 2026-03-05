@@ -353,8 +353,18 @@ namespace WildTamer
             }
         }
 
-        /// <inheritdoc/>
-        public abstract void Die();
+        /// <summary>
+        /// 몬스터를 사망 처리하고 풀에 반환합니다.
+        /// 이동 중단 → 스쿼드 제거 → 도감 해금 → 풀 반환 순서로 처리합니다.
+        /// 서브클래스에서 override하여 다른 사망 동작을 구현할 수 있습니다.
+        /// </summary>
+        public virtual void Die()
+        {
+            StopMovement();
+            squad?.RemoveMember(this);
+            EncyclopediaManager.Instance?.Unlock(monsterData.monsterName);
+            PoolManager.Instance.ReleaseEnemy(monsterData, gameObject);
+        }
 
         /// <summary>
         /// 공격 애니메이션을 재생합니다.
@@ -416,6 +426,26 @@ namespace WildTamer
 
         #endregion
 
+        #region 저장 데이터 복원
+
+        /// <summary>
+        /// 저장 데이터에서 체력을 직접 복원합니다.
+        /// Initialize() 이후에 호출하여 저장된 HP로 덮어씁니다.
+        /// </summary>
+        /// <param name="hp">복원할 체력 값</param>
+        public void RestoreHp(float hp)
+        {
+            if (monsterData == null)
+            {
+                return;
+            }
+
+            CurrentHp = Mathf.Clamp(hp, 0f, monsterData.stat.maxHp);
+            OnHpChanged?.Invoke(CurrentHp, monsterData.stat.maxHp);
+        }
+
+        #endregion
+
         #region ITameable
 
         /// <summary>
@@ -454,6 +484,9 @@ namespace WildTamer
             squad?.RemoveMember(this);
             SetSquad(playerSquad);
             playerSquad.AddMember(this);
+
+            // 도감 해금 (테이밍)
+            EncyclopediaManager.Instance?.Unlock(monsterData.monsterName);
 
             // 상태 초기화 (체력 회복·물리 복원) 후 테이밍 플래그 설정
             Initialize();
