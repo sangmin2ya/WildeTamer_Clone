@@ -12,7 +12,8 @@ GameObject:
   - component: {fileID: 6786688030945914102}
   - component: {fileID: 8259051023458290132}
   - component: {fileID: 5528661584438881364}
-  m_Layer: 7
+  - component: {fileID: -3262534861987214873}
+  m_Layer: 0
   m_Name: Rock_0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -81,7 +82,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: -10
+  m_SortingOrder: 0
   m_MaskInteraction: 0
   m_Sprite: {fileID: -8955579943493005327, guid: 33d368c88e587e94581f2ba3fd2d5b2c, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -142,4 +143,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1b5b66a6a8452b749a0da43f724aa1f2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.EnvironmentObject
+--- !u!114 &-3262534861987214873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3206858890841837291}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4f7cf7a57a496b4da1df12b86087399, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.DepthSortByY
+  scale: 100
   spriteRenderer: {fileID: 6786688030945914102}

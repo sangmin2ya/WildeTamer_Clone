@@ -13,17 +13,14 @@ MonoBehaviour:
   m_Name: Monster1Data
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.MonsterData
   monsterName: 
-  monsterType: 0
   stat:
     maxHp: 10
     attackDamage: 1
     moveSpeed: 1.5
     attackCooldown: 1
     attackRange: 1
-    detectionRange: 0
-  stunChance: 0.3
+    detectionRange: 2
+  stunChance: 0.5
   mass: 0.1
   enemyPrefab: {fileID: 5290469576151389845, guid: 5a730b95f6135e242bda206b13e9f8e3, type: 3}
   allyPrefab: {fileID: 5290469576151389845, guid: 5a730b95f6135e242bda206b13e9f8e3, type: 3}
-  preferredDistance: 5
-  minDistance: 3

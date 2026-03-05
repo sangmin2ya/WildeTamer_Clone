@@ -31,7 +31,7 @@ namespace WildTamer
         private float squadFollowOffset = 1.5f;
 
         [Header("참조")]
-        [SerializeField, Tooltip("flipX 및 sortingOrder에 사용할 SpriteRenderer")]
+        [SerializeField, Tooltip("flipX에 사용할 SpriteRenderer")]
         private SpriteRenderer spriteRenderer;
 
         #endregion
@@ -107,16 +107,12 @@ namespace WildTamer
             OnHpChanged?.Invoke(CurrentHp, playerData.maxHp);
 
             squad?.SetLeader(this);
-        }
 
-        private void OnEnable()
-        {
-            DepthSorter.Register(spriteRenderer);
-        }
-
-        private void OnDisable()
-        {
-            DepthSorter.Unregister(spriteRenderer);
+            // 아군 스쿼드 멤버 이동 속도를 플레이어 속도로 동기화
+            if (squad != null)
+            {
+                squad.MoveSpeed = playerData.moveSpeed;
+            }
         }
 
         private void FixedUpdate()

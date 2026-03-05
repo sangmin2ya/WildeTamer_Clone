@@ -14,5 +14,9 @@ namespace WildTamer
         /// </summary>
         void Move(Vector2 destination);
 
+        /// <summary>
+        /// 이동을 즉시 정지합니다. (velocity = 0)
+        /// </summary>
+        void StopMovement();
     }
 }

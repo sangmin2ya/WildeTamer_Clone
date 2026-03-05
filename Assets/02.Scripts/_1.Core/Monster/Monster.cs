@@ -5,11 +5,12 @@ namespace WildTamer
 {
     /// <summary>
     /// 모든 몬스터의 기반이 되는 추상 클래스입니다.
-    /// IMovable, IFightable, ITameable, IDepthSortable을 구현하며
-    /// 정지·이동·전투 3개 상태로 구성된 상태 머신을 내장합니다.
+    /// IMovable, IFightable, ITameable을 구현하며
+    /// 정지·이동·전투·기절 4개 상태로 구성된 상태 머신을 내장합니다.
     ///
     /// 상태 스크립트는 감지·판단 후 이 클래스의 프리미티브(Move, UpdateFacing 등)를 호출합니다.
-    /// 공격·테이밍 등 개체별로 다른 동작은 서브클래스에서 abstract 메소드로 구현합니다.
+    /// 기절 시 stunChance 판정으로 MonsterStunState로 전환되고,
+    /// TameController(선택)가 테이밍 UI를 표시합니다.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(Animator))]
@@ -30,7 +31,7 @@ namespace WildTamer
         protected float moveAnimThreshold = 0.1f;
 
         [Header("참조")]
-        [SerializeField, Tooltip("flipX 및 sortingOrder에 사용할 SpriteRenderer")]
+        [SerializeField, Tooltip("flipX에 사용할 SpriteRenderer")]
         protected SpriteRenderer spriteRenderer;
 
         #endregion
@@ -54,6 +55,9 @@ namespace WildTamer
 
         private UnitState<Monster> _currentState;
 
+        // Facing 우선순위 제어 — 이 프레임에 ForceUpdateFacing이 호출되면 true
+        private bool _facingForcedThisFrame;
+
         #endregion
 
         #region Protected 상태 필드
@@ -61,6 +65,7 @@ namespace WildTamer
         protected MonsterIdleState _idleState;
         protected MonsterMoveState _moveState;
         protected MonsterCombatState _combatState;
+        protected MonsterStunState _stunState;
 
         #endregion
 
@@ -70,7 +75,9 @@ namespace WildTamer
         public bool IsAlive => CurrentHp > 0f;
 
         public bool IsStunned { get; protected set; }
-        public bool IsTamed { get; protected set; }
+
+        /// <summary>이 프레임에 ForceFaceDirection이 적용되었으면 true — 이동 방향 facing을 억제합니다.</summary>
+        public bool IsFacingForced => _facingForcedThisFrame;
 
         /// <summary>소속 스쿼드 — 상태 스크립트에서 목표 위치 참조 등에 사용</summary>
         public Squad Squad => squad;
@@ -96,22 +103,23 @@ namespace WildTamer
             _idleState   = new MonsterIdleState(this);
             _moveState   = new MonsterMoveState(this);
             _combatState = new MonsterCombatState(this);
+            _stunState   = new MonsterStunState(this);
         }
 
         protected virtual void OnEnable()
         {
-            DepthSorter.Register(spriteRenderer);
-        }
-
-        protected virtual void OnDisable()
-        {
-            DepthSorter.Unregister(spriteRenderer);
+            // 풀 재사용 시에도 상태를 초기화합니다.
+            // Start()는 최초 1회만 실행되므로 OnEnable에서 리셋을 보장합니다.
+            if (monsterData != null)
+            {
+                Initialize();
+                ChangeState(_idleState);
+            }
         }
 
         protected virtual void Start()
         {
-            Initialize();
-            ChangeState(_idleState);
+            // 초기화는 OnEnable에서 처리됩니다.
         }
 
         protected virtual void FixedUpdate()
@@ -122,6 +130,12 @@ namespace WildTamer
         protected virtual void Update()
         {
             _currentState?.Update();
+        }
+
+        protected virtual void LateUpdate()
+        {
+            // 매 프레임 종료 시 강제 facing 플래그를 초기화합니다.
+            _facingForcedThisFrame = false;
         }
 
         #endregion
@@ -136,7 +150,6 @@ namespace WildTamer
         {
             CurrentHp  = monsterData.stat.maxHp;
             IsStunned  = false;
-            IsTamed    = false;
             InitRigidbody();
             OnHpChanged?.Invoke(CurrentHp, monsterData.stat.maxHp);
         }
@@ -146,6 +159,7 @@ namespace WildTamer
         /// </summary>
         protected virtual void InitRigidbody()
         {
+            _rb.simulated       = true;                             // 기절 해제 후 물리 복원
             _rb.bodyType        = RigidbodyType2D.Dynamic;
             _rb.gravityScale    = 0f;
             _rb.mass            = monsterData.mass;
@@ -186,6 +200,12 @@ namespace WildTamer
         /// <param name="state">새로운 군중 상태</param>
         public virtual void OnSquadStateChanged(SquadState state)
         {
+            // 기절 중에는 Squad 상태 전이를 무시합니다.
+            if (IsStunned)
+            {
+                return;
+            }
+
             switch (state)
             {
                 case SquadState.정지:
@@ -225,7 +245,8 @@ namespace WildTamer
                 return;
             }
 
-            _rb.linearVelocity = direction.normalized * monsterData.stat.moveSpeed;
+            float speed = squad != null ? squad.MoveSpeed : monsterData.stat.moveSpeed;
+            _rb.linearVelocity = direction.normalized * speed;
         }
 
         /// <summary>
@@ -235,6 +256,18 @@ namespace WildTamer
         public void StopMovement()
         {
             _rb.linearVelocity = Vector2.zero;
+        }
+
+        /// <summary>
+        /// ForceFaceDirection에서 호출합니다.
+        /// 이 프레임에 강제 facing 플래그를 세우고 UpdateFacing을 적용합니다.
+        /// MonsterMoveState의 velocity-based facing보다 항상 우선합니다.
+        /// </summary>
+        /// <param name="direction">강제할 방향 벡터</param>
+        public void ForceUpdateFacing(Vector2 direction)
+        {
+            _facingForcedThisFrame = true;
+            UpdateFacing(direction);
         }
 
         /// <summary>
@@ -291,7 +324,8 @@ namespace WildTamer
         /// <inheritdoc/>
         public virtual void TakeDamage(float damage)
         {
-            if (!IsAlive)
+            // 사망·기절 상태에서는 추가 데미지 무시
+            if (!IsAlive || IsStunned)
             {
                 return;
             }
@@ -300,9 +334,22 @@ namespace WildTamer
             OnHpChanged?.Invoke(CurrentHp, monsterData.stat.maxHp);
             PlayHitAnimation();
 
-            if (!IsAlive)
+            if (CurrentHp <= 0f)
             {
-                Die();
+                CurrentHp = 0f;
+
+                // HP 0 → 즉시 스쿼드에서 제거 (기절·사망 공통)
+                squad?.RemoveMember(this);
+
+                // stunChance 판정: 통과하면 기절(테이밍 대상), 실패하면 즉시 사망 / 적 스쿼드에만 적용
+                if (squad != null && UnityEngine.Random.value <= monsterData.stunChance && squad.Type == SquadType.적)
+                {
+                    Stun();
+                }
+                else
+                {
+                    Die();
+                }
             }
         }
 
@@ -327,13 +374,110 @@ namespace WildTamer
 
         #endregion
 
+        #region 디버그 기즈모
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            if (monsterData == null)
+            {
+                return;
+            }
+
+            bool isEnemy   = squad != null && squad.Type == SquadType.적;
+            bool inCombat  = squad != null && squad.CurrentState == SquadState.전투;
+
+            // 감지 범위
+            // 적(전투 중): 진한 빨강 / 적(평시): 연한 빨강
+            // 아군(전투 중): 진한 초록 / 아군(평시): 연한 초록
+            if (isEnemy)
+            {
+                Gizmos.color = inCombat
+                    ? new Color(1f, 0.1f, 0.1f, 0.7f)
+                    : new Color(1f, 0.4f, 0.4f, 0.25f);
+            }
+            else
+            {
+                Gizmos.color = inCombat
+                    ? new Color(0.1f, 1f, 0.1f, 0.7f)
+                    : new Color(0.4f, 1f, 0.4f, 0.25f);
+            }
+
+            Gizmos.DrawWireSphere(transform.position, monsterData.stat.detectionRange);
+
+            // 공격 범위 — 노랑 (전투 중에만 표시)
+            if (inCombat)
+            {
+                Gizmos.color = new Color(1f, 1f, 0f, 0.5f);
+                Gizmos.DrawWireSphere(transform.position, monsterData.stat.attackRange);
+            }
+        }
+#endif
+
+        #endregion
+
         #region ITameable
 
-        /// <inheritdoc/>
-        public abstract void Stun();
+        /// <summary>
+        /// 유닛을 기절 상태로 전환합니다.
+        /// TakeDamage에서 HP 0 도달 후 stunChance 판정 시 호출됩니다.
+        /// </summary>
+        public virtual void Stun()
+        {
+            IsStunned = true;
+            // 물리 시뮬레이션 비활성화 — 제자리 고정, 다른 유닛과의 충돌 제거
+            _rb.linearVelocity = Vector2.zero;
+            _rb.simulated      = false;
+            ChangeState(_stunState);
+        }
 
-        /// <inheritdoc/>
-        public abstract void Tame();
+        /// <summary>
+        /// 기절한 적 유닛을 아군으로 테이밍합니다.
+        /// 별도 프리팹 교체 없이 소속 스쿼드를 플레이어 스쿼드로 전환하고 상태를 초기화합니다.
+        /// TameController의 "길들이기" 버튼 콜백에서 호출됩니다.
+        /// </summary>
+        public virtual void Tame()
+        {
+            if (!IsStunned)
+            {
+                return;
+            }
+
+            Squad playerSquad = Squad.GetPlayerSquad();
+
+            if (playerSquad == null || playerSquad.IsFull)
+            {
+                return;
+            }
+
+            // 소속 스쿼드를 플레이어 스쿼드로 전환
+            squad?.RemoveMember(this);
+            SetSquad(playerSquad);
+            playerSquad.AddMember(this);
+
+            // 상태 초기화 (체력 회복·물리 복원) 후 테이밍 플래그 설정
+            Initialize();
+            ChangeState(_idleState);
+        }
+
+        /// <summary>
+        /// 기절한 적 유닛을 수확하여 재화를 획득합니다.
+        /// TameController의 "수확하기" 버튼 콜백에서 호출됩니다.
+        /// </summary>
+        public virtual void Root()
+        {
+            if (!IsStunned)
+            {
+                return;
+            }
+
+            // TODO: ResourceManager 연동 — 몬스터 종류·등급에 따른 재화 지급
+            // ResourceManager.Instance.Add(monsterData.rootReward);
+
+            // 자신을 적 스쿼드에서 제거하고 풀에 반환
+            squad?.RemoveMember(this);
+            PoolManager.Instance.ReleaseEnemy(monsterData, gameObject);
+        }
 
         #endregion
     }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -19,6 +20,11 @@ namespace WildTamer
     /// 자신의 위치를 멤버 몬스터의 이동 목표점으로 제공하며,
     /// 코루틴 기반 감지 루프를 통해 상대 군중을 인식하고 전투 상태를 자율 전환합니다.
     /// 씬 내 모든 Squad는 정적 레지스트리에 자동 등록되어 Physics 쿼리 없이 거리를 비교합니다.
+    ///
+    /// 감지 루프 흐름:
+    ///   1. 소멸하거나 범위를 벗어난 적 스쿼드를 _detectedEnemySquads에서 제거
+    ///   2. 새로 범위에 들어온 적 스쿼드를 추가
+    ///   3. 목록 유무에 따라 전투 진입 / 이탈 전환
     /// </summary>
     public class Squad : MonoBehaviour
     {
@@ -28,15 +34,15 @@ namespace WildTamer
         [SerializeField, Tooltip("이 군중의 종류 (플레이어 or 적)")]
         private SquadType squadType;
 
-        [SerializeField, Tooltip("적 군중을 인식하는 반경 — 이 범위 안에 상대 군중이 들어오면 전투 시작")]
-        private float detectionRadius = 10f;
-
         [SerializeField, Tooltip("적 군중 감지 주기 (초) — 값이 클수록 CPU 절약, 작을수록 빠른 반응")]
         private float detectInterval = 0.3f;
 
         [Header("멤버")]
         [SerializeField, Tooltip("이 군중에 소속된 몬스터 목록")]
         private List<Monster> members = new List<Monster>();
+
+        [SerializeField, Tooltip("플레이어 스쿼드 최대 멤버 수")]
+        private int maxMembers = 10;
 
         #endregion
 
@@ -64,6 +70,23 @@ namespace WildTamer
         // Physics 쿼리 없이 O(n) 순회만으로 적 군중 감지 가능
         private static readonly List<Squad> AllSquads = new List<Squad>();
 
+        /// <summary>
+        /// 씬 내 플레이어 타입 스쿼드를 반환합니다.
+        /// Monster.Tame()에서 아군 편입 시 사용합니다.
+        /// </summary>
+        public static Squad GetPlayerSquad()
+        {
+            foreach (Squad s in AllSquads)
+            {
+                if (s.Type == SquadType.플레이어)
+                {
+                    return s;
+                }
+            }
+
+            return null;
+        }
+
         #endregion
 
         #region Public 프로퍼티
@@ -77,25 +100,62 @@ namespace WildTamer
         /// <summary>멤버 몬스터의 이동 목표점 — 이 오브젝트의 현재 위치</summary>
         public Vector3 TargetPosition => transform.position;
 
+        /// <summary>현재 멤버 수</summary>
+        public int MemberCount => members.Count;
+
+        /// <summary>최대 멤버 수</summary>
+        public int MaxMembers => maxMembers;
+
+        /// <summary>최대 멤버 수에 도달했는지 여부</summary>
+        public bool IsFull => members.Count >= maxMembers;
+
+        /// <summary>
+        /// 멤버가 이동할 속도 (m/s).
+        /// EnemySquadController가 squadMoveSpeed를 설정하고,
+        /// PlayerController가 playerData.moveSpeed를 설정합니다.
+        /// </summary>
+        public float MoveSpeed { get; set; } = 3f;
+
+        /// <summary>
+        /// 멤버 수가 변경될 때 발행됩니다. (현재 수, 최대 수)
+        /// TamerCountUI 등 UI 컴포넌트가 구독하여 표시를 갱신합니다.
+        /// </summary>
+        public event Action<int, int> OnMemberCountChanged;
+
+        /// <summary>
+        /// 멤버가 0명이 될 때 발행됩니다.
+        /// GameManager가 구독하여 적 스쿼드를 풀에 반환합니다.
+        /// </summary>
+        public event Action<Squad> OnEmpty;
+
         #endregion
 
         #region Unity 메소드
 
+        private void Awake()
+        {
+            _detectWait = new WaitForSeconds(detectInterval);
+        }
+
         private void OnEnable()
         {
             AllSquads.Add(this);
+            StartCoroutine(DetectEnemySquadsRoutine());
         }
 
         private void OnDisable()
         {
             AllSquads.Remove(this);
             _detectedEnemySquads.Clear();
-        }
+            _currentState = SquadState.정지;
+            _movementForced = false;
+            _leader = null;
 
-        private void Start()
-        {
-            _detectWait = new WaitForSeconds(detectInterval);
-            StartCoroutine(DetectEnemySquadsRoutine());
+            // 비활성화 시 멤버 목록 초기화 (적 스쿼드 전용)
+            if (squadType == SquadType.적)
+            {
+                members.Clear();
+            }
         }
 
         #endregion
@@ -115,16 +175,23 @@ namespace WildTamer
         }
 
         /// <summary>
-        /// 정적 레지스트리를 순회하여 범위 내 상대 군중을 갱신하고,
-        /// 감지 결과에 따라 전투 / 이동 상태를 자동 전환합니다.
-        /// sqrMagnitude 비교만 사용하므로 sqrt 연산이 없습니다.
+        /// 멤버별 감지 범위로 상대 군중을 탐색하고,
+        /// 감지 결과에 따라 전투 진입 / 이탈을 자동 전환합니다.
         /// </summary>
         private void CheckEnemySquads()
         {
-            _detectedEnemySquads.Clear();
+            // 1. 소멸했거나 감지 범위를 벗어난 스쿼드 제거
+            for (int i = _detectedEnemySquads.Count - 1; i >= 0; i--)
+            {
+                Squad s = _detectedEnemySquads[i];
 
-            float detectRadiusSqr = detectionRadius * detectionRadius;
+                if (s == null || s.MemberCount == 0 || !IsEnemySquadDetected(s))
+                {
+                    _detectedEnemySquads.RemoveAt(i);
+                }
+            }
 
+            // 2. 새로 범위에 들어온 스쿼드 추가
             foreach (Squad other in AllSquads)
             {
                 if (other == this || other.Type == squadType)
@@ -132,34 +199,80 @@ namespace WildTamer
                     continue;
                 }
 
-                float distSqr = (other.transform.position - transform.position).sqrMagnitude;
-
-                if (distSqr <= detectRadiusSqr)
+                if (IsEnemySquadDetected(other) && !_detectedEnemySquads.Contains(other))
                 {
                     _detectedEnemySquads.Add(other);
                 }
             }
 
-            if (_detectedEnemySquads.Count > 0)
-            {
-                // 플레이어 스쿼드: 이동 강제 중에는 전투 전환 차단 (이동 최우선)
-                // 적 스쿼드: _movementForced 와 관계없이 항상 전투 허용
-                bool blockedByMovement = squadType == SquadType.플레이어 && _movementForced;
+            // 3. 전투 상태 전환
+            bool blocked = squadType == SquadType.플레이어 && _movementForced;
 
-                if (!blockedByMovement && _currentState != SquadState.전투)
-                {
-                    SetState(SquadState.전투);
-                }
-            }
-            else
+            if (_detectedEnemySquads.Count > 0 && !blocked && _currentState != SquadState.전투)
             {
-                if (_currentState == SquadState.전투)
+                // 전투 진입 — 감지된 상대 스쿼드에 상호 전투 알림
+                SetState(SquadState.전투);
+
+                foreach (Squad enemy in _detectedEnemySquads)
                 {
-                    // 전투 종료 후 항상 정지로 복귀
-                    // 이동 재개는 ForceMove() 호출 측(플레이어 입력 or 적 이동 로직)이 결정
-                    SetState(SquadState.정지);
+                    if (enemy != null)
+                    {
+                        enemy.EnterCombatFromDetection(this);
+                    }
                 }
             }
+            else if (_detectedEnemySquads.Count == 0 && _currentState == SquadState.전투)
+            {
+                // 전투 이탈
+                SetState(SquadState.정지);
+            }
+        }
+
+        /// <summary>
+        /// 이 스쿼드의 멤버 중 한 명이라도 상대 스쿼드의 유닛을 감지하면 true를 반환합니다.
+        /// 각 멤버의 MonsterData.stat.detectionRange를 감지 반경으로 사용합니다.
+        /// </summary>
+        /// <param name="enemySquad">검사할 상대 스쿼드</param>
+        private bool IsEnemySquadDetected(Squad enemySquad)
+        {
+            // ─ 멤버별 감지 ─────────────────────────────────────────────
+            foreach (Monster member in members)
+            {
+                if (member == null)
+                {
+                    continue;
+                }
+
+                float rangeSqr = member.Data.stat.detectionRange * member.Data.stat.detectionRange;
+                Vector2 memberPos = member.transform.position;
+
+                // 상대 리더 감지
+                if (enemySquad._leader != null && enemySquad._leader.IsAlive)
+                {
+                    float dSqr = ((Vector2)enemySquad._leader.Transform.position - memberPos).sqrMagnitude;
+                    if (dSqr <= rangeSqr)
+                    {
+                        return true;
+                    }
+                }
+
+                // 상대 멤버 감지
+                foreach (Monster enemy in enemySquad.GetMembers())
+                {
+                    if (enemy == null || !enemy.IsAlive)
+                    {
+                        continue;
+                    }
+
+                    float dSqr = ((Vector2)enemy.transform.position - memberPos).sqrMagnitude;
+                    if (dSqr <= rangeSqr)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -177,7 +290,6 @@ namespace WildTamer
         /// 지정 위치에서 가장 가까운 살아있는 IFightable을 반환합니다.
         /// MonsterCombatState에서 개체별 타겟 탐색에 사용합니다.
         /// </summary>
-        /// <param name="from">거리를 측정할 기준 위치 (보통 자신의 위치)</param>
         /// <returns>가장 가까운 살아있는 적 IFightable, 없으면 null</returns>
         public IFightable GetNearestEnemyTarget(Vector2 from)
         {
@@ -239,16 +351,26 @@ namespace WildTamer
             if (monster != null && !members.Contains(monster))
             {
                 members.Add(monster);
+                OnMemberCountChanged?.Invoke(members.Count, maxMembers);
             }
         }
 
         /// <summary>
         /// 몬스터를 군중 멤버에서 제거합니다.
+        /// 마지막 멤버가 제거되어 목록이 비면 OnEmpty를 발행합니다.
         /// </summary>
         /// <param name="monster">제거할 몬스터</param>
         public void RemoveMember(Monster monster)
         {
-            members.Remove(monster);
+            if (members.Remove(monster))
+            {
+                OnMemberCountChanged?.Invoke(members.Count, maxMembers);
+
+                if (members.Count == 0)
+                {
+                    OnEmpty?.Invoke(this);
+                }
+            }
         }
 
         /// <summary>
@@ -262,6 +384,35 @@ namespace WildTamer
         #endregion
 
         #region 상태 전환
+
+        /// <summary>
+        /// 상대 스쿼드에 의해 감지되어 즉시 전투로 진입합니다.
+        /// 감지한 스쿼드를 _detectedEnemySquads에 추가하여 타겟 탐색이 가능하도록 합니다.
+        /// 플레이어 스쿼드가 이동 강제 중이면 무시합니다.
+        /// </summary>
+        /// <param name="detectedBy">이 스쿼드를 감지한 상대 스쿼드</param>
+        public void EnterCombatFromDetection(Squad detectedBy)
+        {
+            // 플레이어 스쿼드: 이동 강제 중에는 전투 전환 차단
+            if (squadType == SquadType.플레이어 && _movementForced)
+            {
+                return;
+            }
+
+            // 리스트 등록은 전투 상태와 무관하게 먼저 수행
+            // (이미 전투 중이어도 새 적 스쿼드를 타겟 후보에 포함)
+            if (!_detectedEnemySquads.Contains(detectedBy))
+            {
+                _detectedEnemySquads.Add(detectedBy);
+            }
+
+            if (_currentState == SquadState.전투)
+            {
+                return;
+            }
+
+            SetState(SquadState.전투);
+        }
 
         /// <summary>
         /// 이 군중을 전투 상태로 전환합니다.
@@ -303,14 +454,20 @@ namespace WildTamer
 
         /// <summary>
         /// 군중 상태를 전환하고 모든 멤버에게 알립니다.
-        /// 상태가 동일하면 아무 작업도 수행하지 않습니다.
+        /// 전투에서 벗어날 때는 스쿼드 위치를 멤버 중심으로 순간이동합니다.
         /// </summary>
-        /// <param name="newState">전환할 새 상태</param>
         private void SetState(SquadState newState)
         {
             if (_currentState == newState)
             {
                 return;
+            }
+
+            // 전투 종료 시 스쿼드 위치를 멤버 중심으로 순간이동
+            // (멤버들이 흩어진 상태에서 원래 위치로 돌아가는 긴 이동을 방지)
+            if (_currentState == SquadState.전투 && newState != SquadState.전투)
+            {
+                TeleportToMembersCentroid();
             }
 
             _currentState = newState;
@@ -321,6 +478,36 @@ namespace WildTamer
                 {
                     member.OnSquadStateChanged(newState);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 스쿼드 위치를 살아있는 멤버들의 중심점으로 순간이동합니다.
+        /// </summary>
+        private void TeleportToMembersCentroid()
+        {
+            if (members.Count == 0)
+            {
+                return;
+            }
+
+            Vector2 centroid = Vector2.zero;
+            int count = 0;
+
+            foreach (Monster member in members)
+            {
+                if (member == null)
+                {
+                    continue;
+                }
+
+                centroid += (Vector2)member.transform.position;
+                count++;
+            }
+
+            if (count > 0)
+            {
+                transform.position = (Vector3)(centroid / count);
             }
         }
 
@@ -338,10 +525,20 @@ namespace WildTamer
             {
                 if (member != null)
                 {
-                    member.UpdateFacing(direction);
+                    member.ForceUpdateFacing(direction);
                 }
             }
         }
+
+        #endregion
+
+        #region 디버그 기즈모
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+        }
+#endif
 
         #endregion
     }
