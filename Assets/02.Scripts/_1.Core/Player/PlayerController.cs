@@ -82,6 +82,9 @@ namespace WildTamer
         /// <inheritdoc/>
         public float CurrentHp { get; private set; }
 
+        /// <summary>플레이어 최대 체력</summary>
+        public float MaxHp => playerData.maxHp;
+
         /// <inheritdoc/>
         public bool IsAlive => CurrentHp > 0f;
 
@@ -370,6 +373,17 @@ namespace WildTamer
         {
             StopMovement();
             // TODO: 게임오버 처리 (GameManager 연동)
+        }
+
+        /// <summary>
+        /// 저장 데이터에서 체력을 직접 복원합니다.
+        /// LoadAndApply 호출 시 사용합니다.
+        /// </summary>
+        /// <param name="hp">복원할 체력 값</param>
+        public void RestoreHp(float hp)
+        {
+            CurrentHp = Mathf.Clamp(hp, 0f, playerData.maxHp);
+            OnHpChanged?.Invoke(CurrentHp, playerData.maxHp);
         }
 
         /// <summary>

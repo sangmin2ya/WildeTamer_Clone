@@ -1,49 +1,21 @@
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.Tilemaps;
 
 namespace WildTamer
 {
     /// <summary>
-    /// 테이밍한 개체 1기의 저장 데이터입니다.
-    /// </summary>
-    [Serializable]
-    public class TamedUnitData
-    {
-        public string monsterName;
-        public float  currentHp;
-        public float  maxHp;
-        public Vector3 position;
-    }
-
-    /// <summary>
-    /// 게임 전체 저장 데이터입니다.
-    /// JsonUtility로 직렬화하여 persistentDataPath에 저장합니다.
-    /// </summary>
-    [Serializable]
-    public class GameData
-    {
-        public int               currency;
-        public float             playerCurrentHp;
-        public float             playerMaxHp;
-        public Vector3           playerPosition;
-        public List<TamedUnitData> tamedUnits = new List<TamedUnitData>();
-    }
-
-    /// <summary>
     /// 게임 전체를 총괄하는 매니저 싱글턴입니다.
-    /// 씬 시작 시 아군·적군 스쿼드를 스폰하고, 단축키로 적군을 추가 스폰할 수 있습니다.
+    /// 씬 시작 시 아군·적군 스쿼드를 스폰하고,
+    /// SaveManager를 통해 저장·불러오기를 수행합니다.
     ///
     /// 아군 Squad: 씬에 배치된 Squad 오브젝트를 Inspector에서 직접 연결합니다.
     /// 적군 Squad: enemySquadPrefab을 런타임에 Instantiate하여 플레이어 주변에 생성합니다.
     /// </summary>
     public class GameManager : MonoBehaviour
     {
-        #region Public 필드 및 프로퍼티
+        #region Public 프로퍼티
 
         public static GameManager Instance { get; private set; }
 
@@ -101,11 +73,8 @@ namespace WildTamer
 
         #region Private 필드
 
-        private const string SaveFileName = "gamedata.json";
-
         private Transform        _playerTransform;
         private PlayerController _player;
-        private GameData         _currentData = new GameData();
 
         private readonly List<Squad> _activeEnemySquads = new List<Squad>();
         private WaitForSeconds       _despawnCheckWait;
@@ -134,7 +103,6 @@ namespace WildTamer
             {
                 _player          = player;
                 _playerTransform = player.transform;
-                _player.OnHpChanged += OnPlayerHpChanged;
 
                 if (playerSpawnPoint != null)
                 {
@@ -150,110 +118,274 @@ namespace WildTamer
             StartCoroutine(SpawnEnemyRoutine());
         }
 
-        private void OnDestroy()
-        {
-            if (_player != null)
-            {
-                _player.OnHpChanged -= OnPlayerHpChanged;
-            }
-        }
-
         #endregion
 
-        #region 게임 데이터
+        #region 저장 / 불러오기
 
         /// <summary>
-        /// 플레이어 HP가 변경될 때 호출됩니다.
-        /// 변경 즉시 _currentData에 반영합니다.
+        /// 현재 게임 상태를 수집하여 SaveManager를 통해 파일로 저장합니다.
+        /// 안개 탐험 데이터도 함께 저장합니다.
         /// </summary>
-        private void OnPlayerHpChanged(float current, float max)
+        public void SaveGame()
         {
-            _currentData.playerCurrentHp = current;
-            _currentData.playerMaxHp     = max;
+            if (SaveManager.Instance == null)
+            {
+                Debug.LogWarning("[GameManager] SaveManager가 없습니다.");
+                return;
+            }
+
+            SaveManager.Instance.SaveGame(CollectCurrentData());
+
+            if (FogOfWarManager.Instance != null)
+            {
+                FogOfWarManager.Instance.SaveFog();
+            }
         }
 
         /// <summary>
-        /// 현재 게임 상태를 _currentData에 스냅샷합니다.
-        /// 테이밍 개체 목록을 플레이어 스쿼드에서 수집합니다.
+        /// SaveManager에서 데이터를 읽어 씬에 즉시 적용합니다.
+        /// 플레이어 위치·체력, 아군·적군 스쿼드를 복원합니다.
+        /// 안개 데이터는 FogOfWarManager.Start()에서 자동 복원됩니다.
         /// </summary>
-        private void CollectCurrentData()
+        public void LoadAndApply()
         {
-            // TODO: ResourceManager 연동 시 실제 재화 값으로 교체
-            _currentData.currency = 0;
-
-            // 플레이어 위치 수집
-            if (_playerTransform != null)
+            if (SaveManager.Instance == null)
             {
-                _currentData.playerPosition = _playerTransform.position;
+                Debug.LogWarning("[GameManager] SaveManager가 없습니다.");
+                return;
             }
 
-            _currentData.tamedUnits.Clear();
+            GameData data = SaveManager.Instance.LoadGame();
 
-            Squad playerSquad = Squad.GetPlayerSquad();
-
-            if (playerSquad == null)
+            if (data == null)
             {
                 return;
             }
 
-            foreach (Monster member in playerSquad.GetMembers())
+            currency = data.currency;
+
+            // 플레이어 위치·체력 복원
+            if (_playerTransform != null)
+            {
+                _playerTransform.position = data.playerPosition;
+            }
+
+            if (_player != null)
+            {
+                _player.RestoreHp(data.playerCurrentHp);
+            }
+
+            // 아군 스쿼드 복원
+            if (allySquad != null && data.allySquadData != null)
+            {
+                RestoreAllySquad(data.allySquadData);
+            }
+
+            // 적군 스쿼드 복원 — 기존 스쿼드 모두 제거 후 재생성
+            List<Squad> squadsToRemove = new List<Squad>(_activeEnemySquads);
+
+            foreach (Squad squad in squadsToRemove)
+            {
+                DespawnEnemySquad(squad);
+            }
+
+            foreach (SquadSaveData squadData in data.enemySquads)
+            {
+                RestoreEnemySquad(squadData);
+            }
+
+            // 도감 해금 상태 복원
+            if (EncyclopediaManager.Instance != null && data.unlockedMonsterNames != null)
+            {
+                EncyclopediaManager.Instance.RestoreFromList(data.unlockedMonsterNames);
+            }
+
+            Debug.Log("[GameManager] 게임 데이터 적용 완료");
+        }
+
+        /// <summary>
+        /// 현재 게임 상태를 GameData로 수집하여 반환합니다.
+        /// </summary>
+        private GameData CollectCurrentData()
+        {
+            GameData data = new GameData();
+
+            data.currency = currency;
+
+            if (_player != null)
+            {
+                data.playerCurrentHp = _player.CurrentHp;
+                data.playerMaxHp     = _player.MaxHp;
+            }
+
+            if (_playerTransform != null)
+            {
+                data.playerPosition = _playerTransform.position;
+            }
+
+            data.allySquadData = CollectSquadData(allySquad);
+
+            foreach (Squad squad in _activeEnemySquads)
+            {
+                if (squad != null)
+                {
+                    data.enemySquads.Add(CollectSquadData(squad));
+                }
+            }
+
+            // 도감 해금 상태 수집
+            data.unlockedMonsterNames = EncyclopediaManager.Instance != null
+                ? EncyclopediaManager.Instance.GetUnlockedList()
+                : new System.Collections.Generic.List<string>();
+
+            return data;
+        }
+
+        /// <summary>
+        /// 스쿼드 위치와 멤버 목록을 SquadSaveData로 수집합니다.
+        /// </summary>
+        private SquadSaveData CollectSquadData(Squad squad)
+        {
+            SquadSaveData squadData = new SquadSaveData();
+
+            if (squad == null)
+            {
+                return squadData;
+            }
+
+            squadData.position = squad.transform.position;
+
+            foreach (Monster member in squad.GetMembers())
             {
                 if (member == null || member.Data == null)
                 {
                     continue;
                 }
 
-                _currentData.tamedUnits.Add(new TamedUnitData
+                squadData.members.Add(new MemberSaveData
                 {
-                    monsterName = member.Data.monsterName,
-                    currentHp   = member.CurrentHp,
-                    maxHp       = member.Data.stat.maxHp,
-                    position    = member.Transform.position
+                    monsterDataName = member.Data.monsterName,
+                    currentHp       = member.CurrentHp
                 });
             }
+
+            return squadData;
         }
 
-        /// <summary>
-        /// 현재 게임 데이터를 JSON 파일로 저장합니다.
-        /// </summary>
-        public void SaveGame()
-        {
-            CollectCurrentData();
+        #endregion
 
-            string json = JsonUtility.ToJson(_currentData, true);
-            string path = Path.Combine(Application.persistentDataPath, SaveFileName);
-
-            File.WriteAllText(path, json);
-            Debug.Log($"[GameManager] 게임 저장 완료: {path}");
-        }
+        #region 저장 데이터 복원
 
         /// <summary>
-        /// 저장 파일을 읽어 GameData를 반환합니다.
-        /// 파일이 없으면 null을 반환합니다.
+        /// 저장 데이터를 기반으로 아군 스쿼드를 복원합니다.
+        /// 기존 멤버를 풀에 반환한 뒤 저장 멤버를 재스폰합니다.
         /// </summary>
-        public GameData LoadGame()
+        private void RestoreAllySquad(SquadSaveData data)
         {
-            string path = Path.Combine(Application.persistentDataPath, SaveFileName);
+            // 기존 멤버 제거 및 풀 반환
+            List<Monster> existing = new List<Monster>(allySquad.GetMembers());
 
-            if (!File.Exists(path))
+            foreach (Monster m in existing)
             {
-                Debug.Log("[GameManager] 저장 파일이 없습니다.");
-                return null;
+                if (m == null || m.Data == null)
+                {
+                    continue;
+                }
+
+                allySquad.RemoveMember(m);
+                PoolManager.Instance.ReleaseAlly(m.Data, m.gameObject);
             }
 
-            string json = File.ReadAllText(path);
-            GameData data = JsonUtility.FromJson<GameData>(json);
-            Debug.Log("[GameManager] 게임 불러오기 완료");
-            return data;
+            allySquad.transform.position = data.position;
+
+            // 저장 데이터 기반으로 멤버 재스폰
+            foreach (MemberSaveData memberData in data.members)
+            {
+                MonsterData mData = SaveManager.Instance.FindMonsterDataByName(memberData.monsterDataName);
+
+                if (mData == null)
+                {
+                    continue;
+                }
+
+                GameObject obj = PoolManager.Instance.GetAlly(mData);
+
+                if (obj == null)
+                {
+                    continue;
+                }
+
+                Vector2 offset = Random.insideUnitCircle * allySpawnRadius;
+                obj.transform.position = data.position + new Vector3(offset.x, offset.y, 0f);
+
+                Monster monster = obj.GetComponent<Monster>();
+
+                if (monster == null)
+                {
+                    continue;
+                }
+
+                monster.SetSquad(allySquad);
+                allySquad.AddMember(monster);
+                monster.RestoreHp(memberData.currentHp);
+            }
         }
 
         /// <summary>
-        /// 저장 파일이 존재하는지 여부를 반환합니다.
+        /// 저장 데이터를 기반으로 적군 스쿼드를 복원합니다.
         /// </summary>
-        public bool HasSaveData()
+        private void RestoreEnemySquad(SquadSaveData data)
         {
-            string path = Path.Combine(Application.persistentDataPath, SaveFileName);
-            return File.Exists(path);
+            if (enemySquadPrefab == null || data.members.Count == 0)
+            {
+                return;
+            }
+
+            GameObject squadObj   = Instantiate(enemySquadPrefab, data.position, Quaternion.identity);
+            Squad      enemySquad = squadObj.GetComponent<Squad>();
+
+            if (enemySquad == null)
+            {
+                Destroy(squadObj);
+                return;
+            }
+
+            enemySquad.OnEmpty += OnEnemySquadEmpty;
+            _activeEnemySquads.Add(enemySquad);
+            StartCoroutine(DespawnWatchRoutine(enemySquad));
+
+            float radius = enemySquadData != null ? enemySquadData.spawnRadius : 2f;
+
+            foreach (MemberSaveData memberData in data.members)
+            {
+                MonsterData mData = SaveManager.Instance.FindMonsterDataByName(memberData.monsterDataName);
+
+                if (mData == null)
+                {
+                    continue;
+                }
+
+                GameObject obj = PoolManager.Instance.GetEnemy(mData);
+
+                if (obj == null)
+                {
+                    continue;
+                }
+
+                Vector2 offset = Random.insideUnitCircle * radius;
+                obj.transform.position = data.position + new Vector3(offset.x, offset.y, 0f);
+
+                Monster monster = obj.GetComponent<Monster>();
+
+                if (monster == null)
+                {
+                    continue;
+                }
+
+                monster.SetSquad(enemySquad);
+                enemySquad.AddMember(monster);
+                monster.RestoreHp(memberData.currentHp);
+            }
         }
 
         #endregion
@@ -324,8 +456,8 @@ namespace WildTamer
 
             Vector3 center = GetEnemySpawnCenter();
 
-            GameObject squadObj = Instantiate(enemySquadPrefab, center, Quaternion.identity);
-            Squad enemySquad = squadObj.GetComponent<Squad>();
+            GameObject squadObj   = Instantiate(enemySquadPrefab, center, Quaternion.identity);
+            Squad      enemySquad = squadObj.GetComponent<Squad>();
 
             if (enemySquad == null)
             {
@@ -339,7 +471,7 @@ namespace WildTamer
             StartCoroutine(DespawnWatchRoutine(enemySquad));
 
             int   count  = enemySquadData != null
-                ? UnityEngine.Random.Range(enemySquadData.minUnitCount, enemySquadData.maxUnitCount + 1)
+                ? Random.Range(enemySquadData.minUnitCount, enemySquadData.maxUnitCount + 1)
                 : 5;
             float radius = enemySquadData != null ? enemySquadData.spawnRadius : 2f;
 
@@ -463,7 +595,7 @@ namespace WildTamer
 
             for (int i = 0; i < maxAttempts; i++)
             {
-                Vector2 dir       = UnityEngine.Random.insideUnitCircle.normalized;
+                Vector2 dir       = Random.insideUnitCircle.normalized;
                 Vector3 candidate = _playerTransform.position + new Vector3(dir.x, dir.y, 0f) * spawnDist;
 
                 if (IsValidGroundPosition(candidate))
@@ -473,7 +605,7 @@ namespace WildTamer
             }
 
             // 유효 위치를 찾지 못한 경우 — 마지막 임의 방향을 그대로 반환
-            Vector2 fallback = UnityEngine.Random.insideUnitCircle.normalized;
+            Vector2 fallback = Random.insideUnitCircle.normalized;
             return _playerTransform.position + new Vector3(fallback.x, fallback.y, 0f) * spawnDist;
         }
 
@@ -494,7 +626,7 @@ namespace WildTamer
                     continue;
                 }
 
-                Vector2 offset = UnityEngine.Random.insideUnitCircle * radius;
+                Vector2 offset = Random.insideUnitCircle * radius;
                 obj.transform.position = center + new Vector3(offset.x, offset.y, 0f);
 
                 Monster monster = obj.GetComponent<Monster>();

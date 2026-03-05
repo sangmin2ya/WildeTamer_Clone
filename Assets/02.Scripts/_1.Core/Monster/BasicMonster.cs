@@ -5,7 +5,7 @@ namespace WildTamer
     /// <summary>
     /// Monster 추상 클래스의 기본 구현체입니다.
     /// 이동·애니메이션·상태 전환은 Monster 기반 클래스의 상태 머신이 처리하며,
-    /// 이 클래스는 개체별 전투 동작(공격·사망)만 담당합니다.
+    /// 이 클래스는 개체별 전투 동작(공격)만 담당합니다.
     /// 기절·테이밍 로직은 Monster 기반 클래스에서 제공하는 virtual 구현을 사용합니다.
     /// </summary>
     public class BasicMonster : Monster
@@ -17,16 +17,6 @@ namespace WildTamer
         {
             PlayAttackAnimation();
             target.TakeDamage(monsterData.stat.attackDamage);
-        }
-
-        /// <summary>
-        /// 몬스터를 사망 처리하고 풀에 반환합니다.
-        /// </summary>
-        public override void Die()
-        {
-            StopMovement();
-            squad?.RemoveMember(this);
-            PoolManager.Instance.ReleaseEnemy(monsterData, gameObject);
         }
 
         #endregion
