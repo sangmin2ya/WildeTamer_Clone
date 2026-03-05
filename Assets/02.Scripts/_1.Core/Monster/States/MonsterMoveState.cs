@@ -13,6 +13,7 @@ namespace WildTamer
 
         // SteeringAgent는 선택 사항 — 없으면 직접 이동 폴백
         private SteeringAgent _steeringAgent;
+        private Rigidbody2D _rb;
 
         #endregion
 
@@ -21,6 +22,7 @@ namespace WildTamer
         public MonsterMoveState(Monster owner) : base(owner)
         {
             _steeringAgent = owner.GetComponent<SteeringAgent>();
+            _rb            = owner.GetComponent<Rigidbody2D>();
         }
 
         #endregion
@@ -41,6 +43,12 @@ namespace WildTamer
         public override void Update()
         {
             Owner.UpdateMoveAnimation();
+
+            // ForceFaceDirection이 이미 적용된 프레임이면 이동 방향 facing을 억제합니다.
+            if (!Owner.IsFacingForced && _rb != null && _rb.linearVelocity.sqrMagnitude > 0.01f)
+            {
+                Owner.UpdateFacing(_rb.linearVelocity);
+            }
         }
 
         #endregion

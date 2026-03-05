@@ -23,6 +23,9 @@ namespace WildTamer
 
         [Tooltip("공격 사정거리")]
         public float attackRange;
+
+        [Tooltip("적 감지 범위 — 이 반경 내에 적 유닛이 들어오면 소속 스쿼드 전체에 전투 명령")]
+        public float detectionRange;
     }
 
     /// <summary>

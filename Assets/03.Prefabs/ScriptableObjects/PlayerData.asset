@@ -15,6 +15,6 @@ MonoBehaviour:
   maxHp: 100
   attackDamage: 5
   moveSpeed: 1.5
-  attackRange: 2
+  attackRange: 1.5
   attackCooldown: 1
   mass: 10

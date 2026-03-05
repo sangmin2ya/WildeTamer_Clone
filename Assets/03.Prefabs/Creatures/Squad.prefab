@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3678127600374187699}
   - component: {fileID: 495112794208730637}
+  - component: {fileID: 8645485322017093757}
   m_Layer: 0
   m_Name: Squad
   m_TagString: Untagged
@@ -47,4 +48,21 @@ MonoBehaviour:
   squadType: 1
   detectionRadius: 10
   detectInterval: 0.3
+  combatExitDelay: 3
   members: []
+  maxMembers: 10
+--- !u!114 &8645485322017093757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5709829122391671273}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 902e8e335b0cd2642a42db977968a663, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.EnemySquadController
+  zoneCenterRadius: 3
+  zoneCenterInterval: 5
+  squadMoveSpeed: 1

@@ -12,12 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c99af0f3553536f42b5bb96274648928, type: 3}
   m_Name: EnemySquadData
   m_EditorClassIdentifier: Assembly-CSharp::WildTamer.EnemySquadData
-  squadName: 
-  monsterData: {fileID: 0}
-  spawnDistance: 20
-  despawnDistance: 30
+  spawnDistance: 5
+  despawnDistance: 10
+  despawnDelay: 5
   minUnitCount: 3
   maxUnitCount: 6
-  orbitRadius: 5
-  orbitAngularSpeed: 40
-  anchorMoveSpeed: 2
+  spawnRadius: 2

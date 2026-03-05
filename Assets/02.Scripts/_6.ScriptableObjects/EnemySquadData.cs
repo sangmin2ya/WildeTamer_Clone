@@ -25,8 +25,11 @@ namespace WildTamer
         [SerializeField, Tooltip("플레이어로부터 이 거리 이내에 들어오면 군중 스폰")]
         public float spawnDistance = 20f;
 
-        [SerializeField, Tooltip("플레이어로부터 이 거리 이상 멀어지면 군중 디스폰 (풀 반환)")]
+        [SerializeField, Tooltip("플레이어로부터 이 거리 이상 멀어지면 디스폰 대기 시작 (이동 중에만 적용)")]
         public float despawnDistance = 30f;
+
+        [SerializeField, Tooltip("디스폰 거리 초과 후 실제 디스폰까지 유예 시간 (초)")]
+        public float despawnDelay = 5f;
 
         [Header("군중 구성")]
         [SerializeField, Tooltip("군중을 구성하는 개체 최소 수")]
@@ -34,6 +37,9 @@ namespace WildTamer
 
         [SerializeField, Tooltip("군중을 구성하는 개체 최대 수")]
         public int maxUnitCount = 6;
+
+        [SerializeField, Tooltip("스쿼드 중심 기준 개체들이 퍼지는 반경 (m)")]
+        public float spawnRadius = 2f;
 
         #endregion
 
@@ -50,6 +56,11 @@ namespace WildTamer
             if (maxUnitCount < minUnitCount)
             {
                 maxUnitCount = minUnitCount;
+            }
+
+            if (spawnRadius < 0f)
+            {
+                spawnRadius = 0f;
             }
 
             if (despawnDistance <= spawnDistance)

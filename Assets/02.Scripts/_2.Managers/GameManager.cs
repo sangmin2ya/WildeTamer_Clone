@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Tilemaps;
 
 namespace WildTamer
 {
@@ -74,18 +75,27 @@ namespace WildTamer
         [SerializeField, Tooltip("적으로 스폰할 몬스터 데이터")]
         private MonsterData enemyMonsterData;
 
-        [SerializeField, Tooltip("스폰할 적군 수")]
-        private int enemyCount = 5;
-
-        [SerializeField, Tooltip("플레이어로부터 적군 스쿼드가 스폰되는 거리")]
-        private float enemySpawnDistance = 15f;
-
-        [SerializeField, Tooltip("스쿼드 내 개체들이 퍼지는 반경")]
-        private float enemySpawnRadius = 2f;
+        [SerializeField, Tooltip("적군 스쿼드 스폰·디스폰 설정 데이터")]
+        private EnemySquadData enemySquadData;
 
         [Header("디버그")]
         [SerializeField, Tooltip("적군 스쿼드를 스폰하는 빈도 (초)")]
         private float spawnEnemyFrequency = 10f;
+
+        [Header("디스폰 설정")]
+        [SerializeField, Tooltip("디스폰 거리 체크 주기 (초) — 낮을수록 정밀하나 CPU 비용 증가")]
+        private float despawnCheckInterval = 1f;
+
+        [Header("맵 설정")]
+        [SerializeField, Tooltip("땅 타일맵 — 적·아군이 이 지역 위에만 배치됩니다. 미설정 시 위치 제한 없음")]
+        private Tilemap groundGrid;
+
+        [Header("시작 지점")]
+        [SerializeField, Tooltip("플레이어 시작 위치 — 씬 시작 시 플레이어를 이 위치로 이동시킵니다. 미설정 시 현재 위치 유지")]
+        private Transform playerSpawnPoint;
+
+        [SerializeField, Tooltip("아군 스쿼드 시작 위치 — 미설정 시 allySquad 오브젝트의 현재 위치를 사용합니다")]
+        private Transform allySquadSpawnPoint;
 
         #endregion
 
@@ -96,6 +106,9 @@ namespace WildTamer
         private Transform        _playerTransform;
         private PlayerController _player;
         private GameData         _currentData = new GameData();
+
+        private readonly List<Squad> _activeEnemySquads = new List<Squad>();
+        private WaitForSeconds       _despawnCheckWait;
 
         #endregion
 
@@ -110,6 +123,7 @@ namespace WildTamer
             }
 
             Instance = this;
+            _despawnCheckWait = new WaitForSeconds(despawnCheckInterval);
         }
 
         private void Start()
@@ -121,6 +135,11 @@ namespace WildTamer
                 _player          = player;
                 _playerTransform = player.transform;
                 _player.OnHpChanged += OnPlayerHpChanged;
+
+                if (playerSpawnPoint != null)
+                {
+                    _playerTransform.position = playerSpawnPoint.position;
+                }
             }
             else
             {
@@ -267,12 +286,21 @@ namespace WildTamer
                 return;
             }
 
+            Vector3 allyCenter = allySquadSpawnPoint != null
+                ? allySquadSpawnPoint.position
+                : allySquad.transform.position;
+
+            if (allySquadSpawnPoint != null)
+            {
+                allySquad.transform.position = allyCenter;
+            }
+
             SpawnMembersIntoSquad(
                 squad: allySquad,
                 data: allyMonsterData,
                 isEnemy: false,
                 count: allyCount,
-                center: allySquad.transform.position,
+                center: allyCenter,
                 radius: allySpawnRadius
             );
         }
@@ -307,14 +335,21 @@ namespace WildTamer
             }
 
             enemySquad.OnEmpty += OnEnemySquadEmpty;
+            _activeEnemySquads.Add(enemySquad);
+            StartCoroutine(DespawnWatchRoutine(enemySquad));
+
+            int   count  = enemySquadData != null
+                ? UnityEngine.Random.Range(enemySquadData.minUnitCount, enemySquadData.maxUnitCount + 1)
+                : 5;
+            float radius = enemySquadData != null ? enemySquadData.spawnRadius : 2f;
 
             SpawnMembersIntoSquad(
                 squad: enemySquad,
                 data: enemyMonsterData,
                 isEnemy: true,
-                count: enemyCount,
+                count: count,
                 center: center,
-                radius: enemySpawnRadius
+                radius: radius
             );
         }
 
@@ -325,6 +360,88 @@ namespace WildTamer
         private void OnEnemySquadEmpty(Squad squad)
         {
             squad.OnEmpty -= OnEnemySquadEmpty;
+            _activeEnemySquads.Remove(squad);
+            Destroy(squad.gameObject);
+        }
+
+        /// <summary>
+        /// 스폰된 적 스쿼드를 주기적으로 감시하여 거리·상태 조건이 충족되면 디스폰합니다.
+        /// 전투 중인 스쿼드는 체크를 건너뛰며, 범위를 벗어나도 즉시 디스폰하지 않고
+        /// despawnDelay 동안 조건이 유지된 경우에만 디스폰합니다.
+        /// </summary>
+        private IEnumerator DespawnWatchRoutine(Squad squad)
+        {
+            float outOfRangeTime = -1f;
+
+            while (squad != null && squad.gameObject != null)
+            {
+                yield return _despawnCheckWait;
+
+                if (squad == null || _playerTransform == null)
+                {
+                    yield break;
+                }
+
+                // 전투 중인 스쿼드는 디스폰 체크 건너뜀 — 전투 종료 후 타이머도 리셋
+                if (squad.CurrentState == SquadState.전투)
+                {
+                    outOfRangeTime = -1f;
+                    continue;
+                }
+
+                float despawnDist  = enemySquadData != null ? enemySquadData.despawnDistance : 30f;
+                float delay        = enemySquadData != null ? enemySquadData.despawnDelay    : 5f;
+                float distSqr      = ((Vector2)squad.transform.position - (Vector2)_playerTransform.position).sqrMagnitude;
+                float thresholdSqr = despawnDist * despawnDist;
+
+                if (distSqr >= thresholdSqr)
+                {
+                    if (outOfRangeTime < 0f)
+                    {
+                        // 범위 초과 시작 — 타이머 시작
+                        outOfRangeTime = Time.time;
+                    }
+                    else if (Time.time - outOfRangeTime >= delay)
+                    {
+                        // 유예 시간 초과 — 디스폰
+                        DespawnEnemySquad(squad);
+                        yield break;
+                    }
+                }
+                else
+                {
+                    // 범위 내로 돌아오면 타이머 리셋
+                    outOfRangeTime = -1f;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 지정된 적 스쿼드의 멤버를 풀에 반환하고 스쿼드 오브젝트를 파괴합니다.
+        /// </summary>
+        private void DespawnEnemySquad(Squad squad)
+        {
+            if (squad == null)
+            {
+                return;
+            }
+
+            squad.OnEmpty -= OnEnemySquadEmpty;
+            _activeEnemySquads.Remove(squad);
+
+            // 멤버 목록을 복사한 뒤 각각 풀에 반환 (Release 중 목록 변경 방지)
+            List<Monster> membersToRelease = new List<Monster>(squad.GetMembers());
+
+            foreach (Monster member in membersToRelease)
+            {
+                if (member == null || member.Data == null)
+                {
+                    continue;
+                }
+
+                PoolManager.Instance.ReleaseEnemy(member.Data, member.gameObject);
+            }
+
             Destroy(squad.gameObject);
         }
 
@@ -339,8 +456,25 @@ namespace WildTamer
                 return Vector3.zero;
             }
 
-            Vector2 dir = UnityEngine.Random.insideUnitCircle.normalized;
-            return _playerTransform.position + new Vector3(dir.x, dir.y, 0f) * enemySpawnDistance;
+            float spawnDist = enemySquadData != null ? enemySquadData.spawnDistance : 15f;
+
+            // groundGrid가 설정된 경우 유효 지형 위에 스폰되도록 최대 10회 시도
+            const int maxAttempts = 10;
+
+            for (int i = 0; i < maxAttempts; i++)
+            {
+                Vector2 dir       = UnityEngine.Random.insideUnitCircle.normalized;
+                Vector3 candidate = _playerTransform.position + new Vector3(dir.x, dir.y, 0f) * spawnDist;
+
+                if (IsValidGroundPosition(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            // 유효 위치를 찾지 못한 경우 — 마지막 임의 방향을 그대로 반환
+            Vector2 fallback = UnityEngine.Random.insideUnitCircle.normalized;
+            return _playerTransform.position + new Vector3(fallback.x, fallback.y, 0f) * spawnDist;
         }
 
         /// <summary>
@@ -374,6 +508,26 @@ namespace WildTamer
                 monster.SetSquad(squad);
                 squad.AddMember(monster);
             }
+        }
+
+        #endregion
+
+        #region 맵 유효성 검사
+
+        /// <summary>
+        /// 주어진 월드 좌표가 groundGrid 위에 유효한 타일인지 반환합니다.
+        /// groundGrid가 설정되지 않은 경우 항상 true를 반환하여 제한 없이 허용합니다.
+        /// </summary>
+        /// <param name="worldPos">검사할 월드 좌표</param>
+        public bool IsValidGroundPosition(Vector2 worldPos)
+        {
+            if (groundGrid == null)
+            {
+                return true;
+            }
+
+            Vector3Int cellPos = groundGrid.WorldToCell(new Vector3(worldPos.x, worldPos.y, 0f));
+            return groundGrid.HasTile(cellPos);
         }
 
         #endregion

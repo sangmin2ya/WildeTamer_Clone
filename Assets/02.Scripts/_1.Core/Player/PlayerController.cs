@@ -107,6 +107,12 @@ namespace WildTamer
             OnHpChanged?.Invoke(CurrentHp, playerData.maxHp);
 
             squad?.SetLeader(this);
+
+            // 아군 스쿼드 멤버 이동 속도를 플레이어 속도로 동기화
+            if (squad != null)
+            {
+                squad.MoveSpeed = playerData.moveSpeed;
+            }
         }
 
         private void FixedUpdate()

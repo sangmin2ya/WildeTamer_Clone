@@ -9,9 +9,6 @@ namespace WildTamer
         /// <summary>현재 기절 상태 여부</summary>
         bool IsStunned { get; }
 
-        /// <summary>테이밍(아군 편입) 상태 여부</summary>
-        bool IsTamed { get; }
-
         /// <summary>
         /// 유닛을 기절 상태로 만듭니다.
         /// HP가 0이 되어 stunChance 판정을 통과하면 호출됩니다.
