@@ -343,11 +343,28 @@ namespace WildTamer
 
         #region IFightable
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 공격 대상을 저장하고 공격 애니메이션을 재생합니다.
+        /// 실제 데미지는 애니메이션 이벤트가 OnAttackHit()을 호출할 때 적용됩니다.
+        /// </summary>
         public void Attack(IFightable target)
         {
+            _attackTarget = target;
             PlayAttackAnimation();
-            target.TakeDamage(playerData.attackDamage);
+        }
+
+        /// <summary>
+        /// 공격 애니메이션의 타격 타이밍에 Animation Event로 호출됩니다.
+        /// 대상이 이미 사망한 경우 아무 동작도 하지 않습니다.
+        /// </summary>
+        public void OnAttackHit()
+        {
+            if (_attackTarget == null || !_attackTarget.IsAlive)
+            {
+                return;
+            }
+
+            _attackTarget.TakeDamage(playerData.attackDamage);
         }
 
         /// <inheritdoc/>
@@ -372,7 +389,7 @@ namespace WildTamer
         public void Die()
         {
             StopMovement();
-            // TODO: 게임오버 처리 (GameManager 연동)
+            GameManager.Instance?.OnPlayerDied();
         }
 
         /// <summary>

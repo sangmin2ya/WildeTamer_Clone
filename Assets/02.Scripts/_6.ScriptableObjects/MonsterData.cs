@@ -29,6 +29,15 @@ namespace WildTamer
     }
 
     /// <summary>
+    /// 몬스터의 분류 타입입니다.
+    /// </summary>
+    public enum MonsterType
+    {
+        일반,
+        보스
+    }
+
+    /// <summary>
     /// 몬스터의 기본 정보, 스탯, 프리팹, 타입별 설정을 정의하는 ScriptableObject입니다.
     /// </summary>
     [CreateAssetMenu(fileName = "MonsterData", menuName = "WildTamer/Data/MonsterData")]
@@ -39,6 +48,9 @@ namespace WildTamer
         [Header("기본 정보")]
         [SerializeField, Tooltip("몬스터 이름")]
         public string monsterName;
+
+        [SerializeField, Tooltip("몬스터 타입 — 일반 또는 보스")]
+        public MonsterType monsterType;
 
         [Header("스탯")]
         [SerializeField, Tooltip("유닛 스탯 (적·아군 공통)")]

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8502d7165b3111d4aabfb18b61ac7b74, type: 3}
+  m_Name: Rat
+  m_EditorClassIdentifier: Assembly-CSharp::WildTamer.MonsterData
+  monsterName: "\uC950"
+  monsterType: 0
+  stat:
+    maxHp: 10
+    attackDamage: 2
+    moveSpeed: 1.5
+    attackCooldown: 1
+    attackRange: 1
+    detectionRange: 2
+  stunChance: 0.5
+  mass: 0.1
+  enemyPrefab: {fileID: 5290469576151389845, guid: 5a730b95f6135e242bda206b13e9f8e3, type: 3}
+  allyPrefab: {fileID: 5290469576151389845, guid: 5a730b95f6135e242bda206b13e9f8e3, type: 3}

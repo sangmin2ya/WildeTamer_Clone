@@ -25,14 +25,8 @@ namespace WildTamer
     /// 오브젝트 풀링을 총괄하는 매니저 싱글턴입니다.
     /// 적·아군 개체를 포함한 모든 동적 오브젝트는 이 매니저를 통해 생성·반환합니다.
     /// </summary>
-    public class PoolManager : MonoBehaviour
+    public class PoolManager : Singleton<PoolManager>
     {
-        #region Public 필드 및 프로퍼티
-
-        public static PoolManager Instance { get; private set; }
-
-        #endregion
-
         #region SerializeField 필드
 
         [Header("사전 등록 풀 목록")]
@@ -52,15 +46,9 @@ namespace WildTamer
 
         #region Unity 메소드
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
+            base.Awake();
             DontDestroyOnLoad(gameObject);
             InitializePools();
         }
