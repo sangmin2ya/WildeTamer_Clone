@@ -8,7 +8,7 @@ namespace WildTamer
     /// 맵 전체를 불투명 검정 텍스처로 덮고, 플레이어 이동 시 주변 영역을 원형으로 투명하게 페인팅합니다.
     /// 탐험 데이터는 PNG로 저장하여 게임 재시작 시 복원됩니다.
     /// </summary>
-    public class FogOfWarManager : MonoBehaviour
+    public class FogOfWarManager : Singleton<FogOfWarManager>
     {
         #region SerializeField 필드
 
@@ -51,24 +51,7 @@ namespace WildTamer
 
         #endregion
 
-        #region Public 프로퍼티
-
-        public static FogOfWarManager Instance { get; private set; }
-
-        #endregion
-
         #region Unity 메소드
-
-        private void Awake()
-        {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-        }
 
         private void Start()
         {

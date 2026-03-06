@@ -1,39 +1,50 @@
+using System.Collections;
+using DG.Tweening;
 using UnityEngine;
 
 namespace WildTamer
 {
     /// <summary>
     /// 기절한 몬스터에 선택적으로 부착하는 테이밍 전용 컴포넌트입니다.
-    /// 기절 시 Screen Space Overlay 캔버스에 tameButtonPrefab을 인스턴스화하여
-    /// 몬스터 위치를 추적하는 테이밍 버튼을 표시합니다.
+    /// 몬스터 월드 캔버스에 배치된 TameButtonUI를 직접 참조하며,
+    /// 기절 상태에서 플레이어가 감지 반경 내에 들어올 때 DOTween 애니메이션으로 UI를 표시합니다.
     ///
     /// ■ 설정 방법
     ///   1. 몬스터 프리팹에 이 컴포넌트를 추가합니다.
-    ///   2. tameButtonPrefab: TameButtonUI 컴포넌트가 붙은 버튼 프리팹을 연결합니다.
-    ///   3. overlayCanvas: Screen Space Overlay 캔버스를 연결합니다. (미연결 시 자동 탐색)
+    ///   2. tameButtonUI: 월드 캔버스 자식으로 배치된 TameButtonUI를 연결합니다.
+    ///      (미연결 시 GetComponentInChildren으로 자동 탐색)
+    ///   3. TameButtonUI 오브젝트는 기본 비활성화 상태로 설정해두어야 합니다.
     /// </summary>
     [RequireComponent(typeof(Monster))]
     public class TameController : MonoBehaviour
     {
         #region SerializeField 필드
 
-        [Header("UI 설정")]
-        [SerializeField, Tooltip("기절 시 생성할 테이밍 버튼 프리팹 (TameButtonUI 포함)")]
-        private GameObject tameButtonPrefab;
+        [Header("UI 참조")]
+        [SerializeField, Tooltip("몬스터 월드 캔버스에 배치된 TameButtonUI (미연결 시 자동 탐색)")]
+        private TameButtonUI tameButtonUI;
 
-        [SerializeField, Tooltip("버튼을 생성할 Screen Space Overlay 캔버스 (미연결 시 씬에서 자동 탐색)")]
-        private Canvas overlayCanvas;
+        [Header("감지 설정")]
+        [SerializeField, Tooltip("UI를 표시할 플레이어 감지 반경 (월드 단위)")]
+        private float detectionRadius = 2f;
 
-        [SerializeField, Tooltip("버튼이 표시될 위치의 월드 오프셋 (몬스터 위치 기준)")]
-        private Vector3 buttonWorldOffset = new Vector3(0f, 1f, 0f);
+        [Header("애니메이션 설정")]
+        [SerializeField, Tooltip("UI 등장·퇴장 애니메이션 재생 시간 (초)")]
+        private float showDuration = 0.25f;
+
+        [SerializeField, Tooltip("UI 등장·퇴장 애니메이션 Ease 유형")]
+        private Ease showEase = Ease.OutBack;
 
         #endregion
 
         #region Private 필드
 
-        private Monster _monster;
-        private Camera _mainCamera;
-        private TameButtonUI _tameButtonInstance;
+        private Monster   _monster;
+        private Transform _playerTransform;
+        private bool      _isUIVisible;
+        private Coroutine _proximityCoroutine;
+
+        private readonly WaitForSeconds _checkInterval = new WaitForSeconds(0.1f);
 
         #endregion
 
@@ -41,26 +52,25 @@ namespace WildTamer
 
         private void Awake()
         {
-            _monster    = GetComponent<Monster>();
-            _mainCamera = Camera.main;
+            _monster = GetComponent<Monster>();
 
-            // overlayCanvas가 Inspector에서 미연결된 경우 씬에서 Screen Space Overlay 캔버스를 탐색
-            if (overlayCanvas == null)
+            if (tameButtonUI == null)
             {
-                foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
-                {
-                    if (c.renderMode == RenderMode.ScreenSpaceOverlay)
-                    {
-                        overlayCanvas = c;
-                        break;
-                    }
-                }
+                tameButtonUI = GetComponentInChildren<TameButtonUI>(true);
+            }
+
+            GameObject playerObj = GameObject.FindWithTag("Player");
+            if (playerObj != null)
+            {
+                _playerTransform = playerObj.transform;
             }
         }
 
         private void OnDisable()
         {
-            HideTameUI();
+            StopProximityCheck();
+            tameButtonUI?.HideImmediate();
+            _isUIVisible = false;
         }
 
         #endregion
@@ -68,45 +78,73 @@ namespace WildTamer
         #region UI 제어
 
         /// <summary>
-        /// 테이밍 버튼을 오버레이 캔버스에 생성하고 이 몬스터를 추적하도록 초기화합니다.
+        /// 기절 상태에 진입할 때 호출합니다.
+        /// 버튼 콜백을 초기화하고 플레이어 근접 감지 루프를 시작합니다.
         /// MonsterStunState.Enter()에서 호출됩니다.
         /// </summary>
         public void ShowTameUI()
         {
-            if (tameButtonPrefab == null || overlayCanvas == null)
+            if (tameButtonUI == null)
             {
                 return;
             }
 
-            if (_tameButtonInstance != null)
-            {
-                return;
-            }
+            tameButtonUI.Initialize(OnTameButtonClicked, OnRootButtonClicked, Squad.GetPlayerSquad());
 
-            GameObject buttonObj = Instantiate(tameButtonPrefab, overlayCanvas.transform);
-            _tameButtonInstance  = buttonObj.GetComponent<TameButtonUI>();
-
-            _tameButtonInstance?.Initialize(
-                transform,
-                _mainCamera,
-                overlayCanvas.GetComponent<RectTransform>(),
-                buttonWorldOffset,
-                OnTameButtonClicked,
-                OnRootButtonClicked,
-                Squad.GetPlayerSquad()
-            );
+            StopProximityCheck();
+            _proximityCoroutine = StartCoroutine(ProximityCheckRoutine());
         }
 
         /// <summary>
-        /// 테이밍 버튼 인스턴스를 파괴합니다.
+        /// 기절 상태를 벗어날 때 호출합니다.
+        /// 근접 감지 루프를 종료하고 UI를 즉시 숨깁니다.
         /// MonsterStunState.Exit()에서 호출됩니다.
         /// </summary>
         public void HideTameUI()
         {
-            if (_tameButtonInstance != null)
+            StopProximityCheck();
+            tameButtonUI?.HideImmediate();
+            _isUIVisible = false;
+        }
+
+        #endregion
+
+        #region 근접 감지
+
+        /// <summary>
+        /// 플레이어와의 거리를 주기적으로 확인하여 UI 표시 여부를 결정합니다.
+        /// 감지 반경 진입 시 Show 애니메이션, 이탈 시 Hide 애니메이션을 재생합니다.
+        /// </summary>
+        private IEnumerator ProximityCheckRoutine()
+        {
+            float radiusSqr = detectionRadius * detectionRadius;
+
+            while (true)
             {
-                Destroy(_tameButtonInstance.gameObject);
-                _tameButtonInstance = null;
+                bool inRange = _playerTransform != null &&
+                               (transform.position - _playerTransform.position).sqrMagnitude <= radiusSqr;
+
+                if (inRange && !_isUIVisible)
+                {
+                    _isUIVisible = true;
+                    tameButtonUI.Show(showDuration, showEase);
+                }
+                else if (!inRange && _isUIVisible)
+                {
+                    _isUIVisible = false;
+                    tameButtonUI.Hide(showDuration, showEase);
+                }
+
+                yield return _checkInterval;
+            }
+        }
+
+        private void StopProximityCheck()
+        {
+            if (_proximityCoroutine != null)
+            {
+                StopCoroutine(_proximityCoroutine);
+                _proximityCoroutine = null;
             }
         }
 
@@ -116,7 +154,6 @@ namespace WildTamer
 
         /// <summary>
         /// "길들이기" 버튼 클릭 시 호출됩니다.
-        /// Monster.Tame()에 테이밍 처리를 위임합니다.
         /// </summary>
         private void OnTameButtonClicked()
         {
@@ -125,7 +162,6 @@ namespace WildTamer
 
         /// <summary>
         /// "수확하기" 버튼 클릭 시 호출됩니다.
-        /// Monster.Root()에 재화 획득 처리를 위임합니다.
         /// </summary>
         private void OnRootButtonClicked()
         {

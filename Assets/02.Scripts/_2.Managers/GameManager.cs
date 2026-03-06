@@ -13,14 +13,8 @@ namespace WildTamer
     /// 아군 Squad: 씬에 배치된 Squad 오브젝트를 Inspector에서 직접 연결합니다.
     /// 적군 Squad: enemySquadPrefab을 런타임에 Instantiate하여 플레이어 주변에 생성합니다.
     /// </summary>
-    public class GameManager : MonoBehaviour
+    public class GameManager : Singleton<GameManager>
     {
-        #region Public 프로퍼티
-
-        public static GameManager Instance { get; private set; }
-
-        #endregion
-
         #region SerializeField 필드
 
         [Header("게임 데이터")]
@@ -78,20 +72,18 @@ namespace WildTamer
 
         private readonly List<Squad> _activeEnemySquads = new List<Squad>();
         private WaitForSeconds       _despawnCheckWait;
+        private WaitForSeconds       _autoSaveWait;
+
+        // 게임오버 상태 — true가 되면 자동저장 코루틴이 종료됩니다
+        private bool _isGameOver;
 
         #endregion
 
         #region Unity 메소드
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
+            base.Awake();
             _despawnCheckWait = new WaitForSeconds(despawnCheckInterval);
         }
 
@@ -116,6 +108,13 @@ namespace WildTamer
 
             SpawnAllySquad();
             StartCoroutine(SpawnEnemyRoutine());
+
+            // 자동저장 코루틴 시작 — SaveManager가 있을 때만 실행
+            if (SaveManager.Instance != null)
+            {
+                _autoSaveWait = new WaitForSeconds(SaveManager.Instance.SaveInterval);
+                StartCoroutine(AutoSaveRoutine());
+            }
         }
 
         #endregion
@@ -140,6 +139,36 @@ namespace WildTamer
             {
                 FogOfWarManager.Instance.SaveFog();
             }
+        }
+
+        /// <summary>
+        /// SaveManager.SaveInterval마다 자동으로 게임을 저장합니다.
+        /// 게임오버(_isGameOver)가 되면 코루틴을 종료합니다.
+        /// </summary>
+        private IEnumerator AutoSaveRoutine()
+        {
+            while (!_isGameOver)
+            {
+                yield return _autoSaveWait;
+
+                if (_isGameOver)
+                {
+                    yield break;
+                }
+
+                SaveGame();
+            }
+        }
+
+        /// <summary>
+        /// 플레이어 사망 시 PlayerController.Die()에서 호출됩니다.
+        /// 자동저장 코루틴을 종료하고 저장 파일을 삭제합니다.
+        /// </summary>
+        public void OnPlayerDied()
+        {
+            _isGameOver = true;
+            SaveManager.Instance?.DeleteSaveData();
+            UIManager.Instance?.OpenGameOver();
         }
 
         /// <summary>
@@ -195,9 +224,9 @@ namespace WildTamer
             }
 
             // 도감 해금 상태 복원
-            if (EncyclopediaManager.Instance != null && data.unlockedMonsterNames != null)
+            if (CollectionManager.Instance != null && data.unlockedMonsterNames != null)
             {
-                EncyclopediaManager.Instance.RestoreFromList(data.unlockedMonsterNames);
+                CollectionManager.Instance.RestoreFromList(data.unlockedMonsterNames);
             }
 
             Debug.Log("[GameManager] 게임 데이터 적용 완료");
@@ -234,8 +263,8 @@ namespace WildTamer
             }
 
             // 도감 해금 상태 수집
-            data.unlockedMonsterNames = EncyclopediaManager.Instance != null
-                ? EncyclopediaManager.Instance.GetUnlockedList()
+            data.unlockedMonsterNames = CollectionManager.Instance != null
+                ? CollectionManager.Instance.GetUnlockedList()
                 : new System.Collections.Generic.List<string>();
 
             return data;

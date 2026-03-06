@@ -44,6 +44,9 @@ namespace WildTamer
         protected bool _wasMoving;
         protected bool _isFacingRight = true;
 
+        // 현재 공격 대상 — Attack() 호출 시 저장, OnAttackHit() 애니메이션 이벤트에서 참조
+        protected IFightable _attackTarget;
+
         // Animator 파라미터 해시 캐싱 — 모든 서브클래스에서 공용으로 사용
         protected static readonly int AnimIsMoving = Animator.StringToHash("IsMoving");
         protected static readonly int AnimAttack   = Animator.StringToHash("Attack");
@@ -62,10 +65,10 @@ namespace WildTamer
 
         #region Protected 상태 필드
 
-        protected MonsterIdleState _idleState;
-        protected MonsterMoveState _moveState;
-        protected MonsterCombatState _combatState;
-        protected MonsterStunState _stunState;
+        protected MonsterIdleState    _idleState;
+        protected MonsterMoveState    _moveState;
+        protected UnitState<Monster>  _combatState;   // 서브클래스에서 전용 전투 상태로 교체 가능
+        protected MonsterStunState    _stunState;
 
         #endregion
 
@@ -282,12 +285,26 @@ namespace WildTamer
                 return;
             }
 
-            if (direction.x > 0.01f && !_isFacingRight)
+            // 속도 크기가 거의 0이면 무시 (정지 시 방향 유지)
+            float sqrMag = direction.sqrMagnitude;
+            if (sqrMag < 0.0001f)
+            {
+                return;
+            }
+
+            // 정규화된 x 성분으로 판단 — 절대값이 아닌 수평 비율 기준
+            // 임계값(0.25): 전체 이동 벡터 중 수평 성분이 25% 이상일 때만 전환
+            // → x 절대값 비교보다 속도 크기에 무관하게 안정적이며
+            //   수직에 가까운 이동 시 매프레임 flip 버그 방지
+            const float k = 0.25f;
+            float normalizedX = direction.x / Mathf.Sqrt(sqrMag);
+
+            if (normalizedX > k && !_isFacingRight)
             {
                 spriteRenderer.flipX = false;
                 _isFacingRight = true;
             }
-            else if (direction.x < -0.01f && _isFacingRight)
+            else if (normalizedX < -k && _isFacingRight)
             {
                 spriteRenderer.flipX = true;
                 _isFacingRight = false;
@@ -318,8 +335,32 @@ namespace WildTamer
         /// <inheritdoc/>
         public Transform Transform => transform;
 
-        /// <inheritdoc/>
-        public abstract void Attack(IFightable target);
+        /// <summary>
+        /// 공격 대상을 저장하고 공격 애니메이션을 재생합니다.
+        /// 실제 데미지 또는 투척물 발사는 애니메이션 이벤트가 OnAttackHit()을 호출할 때 수행됩니다.
+        /// 서브클래스에서 override하여 추가 동작(투척 파라미터 저장 등)을 구현할 수 있습니다.
+        /// </summary>
+        public virtual void Attack(IFightable target)
+        {
+            _attackTarget = target;
+            PlayAttackAnimation();
+        }
+
+        /// <summary>
+        /// 공격 애니메이션의 타격 타이밍에 Animation Event로 호출됩니다.
+        /// 대상이 이미 사망한 경우 아무 동작도 하지 않습니다.
+        /// 근접 공격(BasicMonster)은 이 시점에 데미지를 입히고,
+        /// 원거리 공격(RangedMonster)은 override하여 투척물을 발사합니다.
+        /// </summary>
+        public virtual void OnAttackHit()
+        {
+            if (_attackTarget == null || !_attackTarget.IsAlive)
+            {
+                return;
+            }
+
+            _attackTarget.TakeDamage(monsterData.stat.attackDamage);
+        }
 
         /// <inheritdoc/>
         public virtual void TakeDamage(float damage)
@@ -362,7 +403,7 @@ namespace WildTamer
         {
             StopMovement();
             squad?.RemoveMember(this);
-            EncyclopediaManager.Instance?.Unlock(monsterData.monsterName);
+            CollectionManager.Instance?.Unlock(monsterData.monsterName);
             PoolManager.Instance.ReleaseEnemy(monsterData, gameObject);
         }
 
@@ -486,11 +527,11 @@ namespace WildTamer
             playerSquad.AddMember(this);
 
             // 도감 해금 (테이밍)
-            EncyclopediaManager.Instance?.Unlock(monsterData.monsterName);
+            CollectionManager.Instance?.Unlock(monsterData.monsterName);
 
-            // 상태 초기화 (체력 회복·물리 복원) 후 테이밍 플래그 설정
+            // 상태 초기화 (체력 회복·물리 복원) 후 스쿼드 현재 상태로 진입
             Initialize();
-            ChangeState(_idleState);
+            OnSquadStateChanged(playerSquad.CurrentState);
         }
 
         /// <summary>

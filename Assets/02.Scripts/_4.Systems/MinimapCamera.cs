@@ -7,14 +7,8 @@ namespace WildTamer
     /// 미니맵 모드에서는 플레이어를 추적하고,
     /// 전체맵 모드에서는 마우스 드래그로 팬 이동을 지원합니다.
     /// </summary>
-    public class MinimapCamera : MonoBehaviour
+    public class MinimapCamera : Singleton<MinimapCamera>
     {
-        #region 공개 프로퍼티
-
-        public static MinimapCamera Instance { get; private set; }
-
-        #endregion
-
         #region SerializeField 필드
 
         [Header("추적 대상")]
@@ -45,15 +39,9 @@ namespace WildTamer
 
         #region Unity 메소드
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
+            base.Awake();
             _minimapCamera = GetComponent<Camera>();
         }
 

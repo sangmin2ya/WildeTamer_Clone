@@ -46,15 +46,13 @@ namespace WildTamer
     /// 씬 복원·스폰 로직은 GameManager가 담당하며,
     /// 이 클래스는 순수 데이터 레이어로서 Unity 씬에 종속되지 않습니다.
     /// </summary>
-    public class SaveManager : MonoBehaviour
+    public class SaveManager : Singleton<SaveManager>
     {
-        #region Public 프로퍼티
-
-        public static SaveManager Instance { get; private set; }
-
-        #endregion
-
         #region SerializeField 필드
+
+        [Header("자동 저장 설정")]
+        [SerializeField, Tooltip("자동 저장 주기 (초) — GameManager가 이 값으로 저장 코루틴 간격을 설정합니다")]
+        private float saveInterval = 30f;
 
         [Header("데이터 레지스트리")]
         [SerializeField, Tooltip("이름으로 MonsterData를 조회하기 위한 등록 목록 — 저장 복원 시 사용됩니다")]
@@ -68,18 +66,10 @@ namespace WildTamer
 
         #endregion
 
-        #region Unity 메소드
+        #region Public 프로퍼티
 
-        private void Awake()
-        {
-            if (Instance != null && Instance != this)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            Instance = this;
-        }
+        /// <summary>자동 저장 주기 (초) — GameManager 자동저장 코루틴에서 참조합니다</summary>
+        public float SaveInterval => saveInterval;
 
         #endregion
 
@@ -124,6 +114,21 @@ namespace WildTamer
         {
             string path = Path.Combine(Application.persistentDataPath, SaveFileName);
             return File.Exists(path);
+        }
+
+        /// <summary>
+        /// 저장 파일을 삭제합니다.
+        /// 플레이어 사망 시 호출하여 세이브 데이터를 초기화합니다.
+        /// </summary>
+        public void DeleteSaveData()
+        {
+            string path = Path.Combine(Application.persistentDataPath, SaveFileName);
+
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                Debug.Log("[SaveManager] 저장 파일 삭제 완료");
+            }
         }
 
         #endregion
